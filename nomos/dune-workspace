@@ -1,0 +1,5 @@
+(lang dune 1.8)
+
+(env
+ (dev
+  (flags :standard -warn-error -8)))
