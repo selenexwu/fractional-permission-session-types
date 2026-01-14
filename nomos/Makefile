@@ -1,8 +1,8 @@
 DUNE=dune
 
-.PHONY: all rast nomos clean
+.PHONY: all frac rast nomos clean
 
-all: nomos nomosjson
+all: frac
 
 rast-editor:
 	cd rast-src; \
@@ -54,6 +54,9 @@ nomos-editor:
 	ocamlfind ocamlc -thread -linkpkg -package core JsonConfig.mli; \
 	cd ..
 
+
+frac:
+	@${DUNE} build frac-bin/frac.exe
 
 rast:
 	@${DUNE} build rast-src/rast.exe

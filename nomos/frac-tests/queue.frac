@@ -1,0 +1,79 @@
+type nat = +{zero : 1,
+             succ : nat}
+
+proc asset zero : . |- (n : nat) =
+{
+  n.zero;
+  close n
+}
+
+proc asset succ : (n : nat) |- (n1 : nat) =
+{
+  n1.succ;
+  n1 <- n
+}
+
+type A = 1
+
+type queue = /\ &{ins : \\// !a. <A,*,a> -o queue,
+                  del : \\// +{none : 1,
+                               some : ?a. <A,*,a> * queue},
+                  len : ?a. <nat,*,a> * \/ queue}
+
+
+proc asset empty : . |- (q : queue) =
+{
+  immut {
+    case q (
+      ins => mut {
+        x <- recv q;
+        e <- empty;
+        q <- elem x e
+      }
+    | del => mut {
+        q.none;
+        close q
+      }
+    | len =>
+      n0 <- zero;
+      send q n0;
+      continue
+    )
+  }
+}
+
+proc asset elem : (x : A), (t : queue) |- (q : queue) =
+{
+  immut {
+    case q (
+      ins => mut {
+        y <- recv q;
+        t.ins;
+        send t y;
+        q <- elem x t
+      }
+    | del => mut {
+        q.some;
+        send q x;
+        q <- t
+      }
+    | len =>
+        t.len;
+        n <- recv t;
+        n1 <- succ n;
+        send q n1;
+        continue x t
+    )
+  }
+}
+
+type test = !a. ?b. !!c. ??d. 1
+
+proc asset test : . |- (x : test) =
+{
+  {a} <- recv x;
+  send x {a};
+  {{p}} <- recv x;
+  send x {{p}};
+  close x
+}
