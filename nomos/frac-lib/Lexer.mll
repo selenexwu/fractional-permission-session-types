@@ -28,9 +28,6 @@ rule token = parse
   (* declarations *)
   | "type"              { TYPE }
   | "proc"              { PROC }
-  | "asset"             { ASSET }
-  | "contract"          { CONTRACT }
-  | "transaction"       { TRANSACTION }
   | "|-"                { TURNSTILE }
   | "exec"              { EXEC }
   | ":"                 { COLON }
@@ -45,70 +42,26 @@ rule token = parse
   | "!"                 { BANG }
   | "<"                 { LANGLE }
   | ">"                 { RANGLE }
-  | "^"                 { PRODUCT }
-  | "coin"              { COIN }
-  
-  (* functional types *)
-  | "int"               { INTEGER }
-  | "bool"              { BOOLEAN }
-  | "address"           { ADDRESS }
-  | "list"              { LIST }
-  
+
   (* functional *)
   | newline             { next_line lexbuf; token lexbuf }
   | "(*"                { comment_depth := 1; comment lexbuf; token lexbuf }
   | ['0'-'9']+ as i     { INT (int_of_string i) }
   | ['0'-'9']+ ('.' ['0'-'9']+)? as f     { FLOAT (float_of_string f) }
-  | "let"               { LET }
-  | "in"                { IN }
-  | "true"              { TRUE }  
-  | "false"             { FALSE }
   | '+'                 { PLUS  }
-  | '-'                 { MINUS }
   | '*'                 { TIMES }
-  | '/'                 { DIV   }
   | '('                 { LPAREN }
   | ')'                 { RPAREN }
   | "["                 { LSQUARE }
   | "]"                 { RSQUARE }
-  | "match"             { MATCH }
-  | "fun"               { FUN   }
-  | "with"              { WITH  }
   | "|"                 { BAR  }
   | "[]"                { EMPTYLIST }
-  | "<>"                { NEQ     }
-  | ">"                 { GREATER }
-  | "<"                 { LESS }
-  | ">="                { GREATEREQ }
-  | "<="                { LESSEQ }
-  | "&&"                { ANDALSO }
-  | "||"                { ORELSE }
-  | "->"                { RIGHTARROW }
-  | "::"                { CONS }
   | ","                 { COMMA }
-  | "if"                { IF }
-  | "then"              { THEN }
-  | "else"              { ELSE }
   | "="                 { EQUALS }
-
-  (* map related *)
-  | "Map"               { MAP }
-  | "insert"            { INSERT }
-  | "delete"            { DELETE }
-  | "size"              { SIZE }
-  | "new"               { NEW }
-  
-  (* nomos specific *)
-  | "Nomos.GetTxnNum()"       { GETTXNNUM }
-  | "Nomos.GetTxnSender()"    { GETTXNSENDER }
 
   (* printing *)
   | "print"             { PRINT }    
   | '"'                 { quoted_string := [] ; printable_items lexbuf }
-
-  (* session type channels *)
-  | "#"                 { HASH }
-  | "$"                 { DOLLAR }
 
   (* commands *)
   | "{"                 { LBRACE }
@@ -135,14 +88,6 @@ rule token = parse
   | "merge"             { MERGE }
   | "share"             { SHARE }
   | "own"               { OWN }
-  | "work"              { WORK }
-  | "Nomos.deposit"     { DEPOSIT }
-  | "pay"               { PAY }
-  | "get"               { GET }
-  | "acquire"           { ACQUIRE }
-  | "accept"            { ACCEPT }
-  | "release"           { RELEASE }
-  | "detach"            { DETACH }
   | "abort"             { ABORT }
 
   (* identifier *)

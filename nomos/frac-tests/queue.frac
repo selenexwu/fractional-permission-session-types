@@ -1,17 +1,13 @@
 type nat = +{zero : 1,
              succ : nat}
 
-proc asset zero : . |- (n : nat) =
-{
+proc zero : . |- (n : nat) =
   n.zero;
   close n
-}
 
-proc asset succ : (n : nat) |- (n1 : nat) =
-{
+proc succ : (n : nat) |- (n1 : nat) =
   n1.succ;
   n1 <- n
-}
 
 type A = 1
 
@@ -21,8 +17,7 @@ type queue = /\ &{ins : \\// !a. <A,*,a> -o queue,
                   len : ?a. <nat,*,a> * \/ queue}
 
 
-proc asset empty : . |- (q : queue) =
-{
+proc empty : . |- (q : queue) =
   immut {
     case q (
       ins => mut {
@@ -42,10 +37,8 @@ proc asset empty : . |- (q : queue) =
       continue
     )
   }
-}
 
-proc asset elem : (x : A), (t : queue) |- (q : queue) =
-{
+proc elem : (x : A), (t : queue) |- (q : queue) =
   immut x t {
     case q (
       ins => mut {
@@ -72,15 +65,12 @@ proc asset elem : (x : A), (t : queue) |- (q : queue) =
         continue x t
     )
   }
-}
 
 type test = !a. ?b. !!c. ??d. 1
 
-proc asset test : . |- (x : test) =
-{
+proc test : . |- (x : test) =
   {a} <- recv x;
   send x {a};
   {{p}} <- recv x;
   send x {{p}};
   close x
-}
