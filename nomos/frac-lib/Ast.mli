@@ -87,7 +87,7 @@ and 'a func_expr =
   | Command of 'a st_aug_expr
 and 'a st_expr =
     Fwd of chan * chan
-  | Spawn of chan * expname * chan list * 'a st_aug_expr
+  | Spawn of idname * chan * expname * chan list * 'a st_aug_expr
   | ExpName of chan * expname * chan list
   | Lab of chan * label * 'a st_aug_expr
   | Case of chan * 'a branches
@@ -95,7 +95,7 @@ and 'a st_expr =
   | Recv of chan * chan * 'a st_aug_expr
   | Close of chan
   | Wait of chan * 'a st_aug_expr
-  | Immut of 'a st_aug_expr
+  | Immut of chan list * 'a st_aug_expr
   | Continue of chan list
   | Mut of 'a st_aug_expr
   | Start of chan * 'a st_aug_expr

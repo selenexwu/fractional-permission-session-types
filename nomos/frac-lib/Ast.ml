@@ -161,9 +161,9 @@ and 'a func_expr =
 and 'a st_expr =
   (* judgmental constructs *)
   | Fwd of chan * chan                                      (* x <- y *)
-  | Spawn of chan * expname *
-    chan list * 'a st_aug_expr                            (* x <- f <- [y] ; Q *)
-  | ExpName of chan * expname * chan list                 (* x <- f <- [y] *)
+  | Spawn of idname * chan * expname *
+    chan list * 'a st_aug_expr                              (* {a}, x <- f <- [y] ; Q *)
+  | ExpName of chan * expname * chan list                   (* x <- f <- [y] *)
 
   (* choice +{...} or &{...} *)
   | Lab of chan * label * 'a st_aug_expr                    (* x.k ; P *)
@@ -178,7 +178,7 @@ and 'a st_expr =
   | Wait of chan * 'a st_aug_expr                           (* wait x ; P *)
 
   (* mutability /\ \/ \\// *)
-  | Immut of 'a st_aug_expr                                 (* immut { P } *)
+  | Immut of chan list * 'a st_aug_expr                     (* immut [y] { P } *)
   | Continue of chan list                                   (* continue [y] *)
   | Mut of 'a st_aug_expr                                   (* mut { P } *)
   | Start of chan * 'a st_aug_expr                          (* start x ; P *)
@@ -374,10 +374,10 @@ let subst_list c' c l = List.map (fun a -> sub_arg c' c a) l;;
 
 let rec subst c' c expr = match expr with
     Fwd(x,y) -> Fwd(sub c' c x, sub c' c y)
-  | Spawn(x,f,xs,q) ->
+  | Spawn(a,x,f,xs,q) ->
       if eq_name c x
-      then Spawn(x,f, subst_list c' c xs, q)
-      else Spawn(x,f, subst_list c' c xs, subst_aug c' c q)
+      then Spawn(a,x,f, subst_list c' c xs, q)
+      else Spawn(a,x,f, subst_list c' c xs, subst_aug c' c q)
   | ExpName(x,f,xs) -> ExpName(x,f, subst_list c' c xs)
   | Lab(x,k,p) -> Lab(sub c' c x, k, subst_aug c' c p)
   | Case(x,branches) -> Case(sub c' c x, subst_branches c' c branches)
@@ -513,7 +513,7 @@ and esubstv_arg v' v arg = match arg with
 
 and esubstv v' v exp = match exp with
     Fwd(x,y) -> Fwd(x, y)
-  | Spawn(x,f,xs,q) -> Spawn(x, f, List.map (fun arg -> esubstv_arg v' v arg) xs, esubstv_aug v' v q)
+  | Spawn(a,x,f,xs,q) -> Spawn(a,x, f, List.map (fun arg -> esubstv_arg v' v arg) xs, esubstv_aug v' v q)
   | ExpName(x,f,xs) -> ExpName(x, f, List.map (fun arg -> esubstv_arg v' v arg) xs)
   | Lab(x,k,p) -> Lab(x, k, esubstv_aug v' v p)
   | Case(x,branches) -> Case(x, esubstv_branches v' v branches)

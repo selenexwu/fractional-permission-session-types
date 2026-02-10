@@ -354,7 +354,7 @@ print_id:
 *)
 
 st:
-    |  x = ID; LARROW; f = ID; xs = list(ID); SEMI; p = st { {st_structure = Ast.Spawn(x, f, xs, p); st_data = Ast.make_ext $startpos $endpos(xs) } }
+    |  LBRACE; a = ID; RBRACE; COMMA; x = ID; LARROW; f = ID; xs = list(ID); SEMI; p = st { {st_structure = Ast.Spawn(a, x, f, xs, p); st_data = Ast.make_ext $startpos $endpos(xs) } }
     |  x = ID; LARROW; f = ID; xs = list(ID)               { {st_structure = Ast.ExpName(x, f, xs); st_data = Ast.make_ext $startpos $endpos } }
     |  x = ID; FORWARD; y = ID                                          { {st_structure = Ast.Fwd(x,y); st_data = Ast.make_ext $startpos $endpos } }
     |  SEND; x = linid; w = ID; SEMI; p = st                            { {st_structure = Ast.Send(x,w,p); st_data = Ast.make_ext $startpos $endpos(w) } }
@@ -364,7 +364,7 @@ st:
     |  CLOSE; x = linid                                                  { {st_structure = Ast.Close(x); st_data = Ast.make_ext $startpos $endpos } }
     |  ABORT                                                             { {st_structure = Ast.Abort; st_data = Ast.make_ext $startpos $endpos } }
     |  WAIT; x = linid; SEMI; p = st                                     { {st_structure = Ast.Wait(x,p); st_data = Ast.make_ext $startpos $endpos(x)} }
-    |  IMMUT; LBRACE; p = st; RBRACE                                     { {st_structure = Ast.Immut(p); st_data = Ast.make_ext $startpos $endpos } }
+    |  IMMUT; xs = list(linid); LBRACE; p = st; RBRACE                   { {st_structure = Ast.Immut(xs,p); st_data = Ast.make_ext $startpos $endpos } }
     |  CONTINUE; xs = list(linid)                                        { {st_structure = Ast.Continue(xs); st_data = Ast.make_ext $startpos $endpos } }
     |  MUT; LBRACE; p = st; RBRACE                                       { {st_structure = Ast.Mut(p); st_data = Ast.make_ext $startpos $endpos } }
     |  START; x = linid; SEMI; p = st                                    { {st_structure = Ast.Start(x,p); st_data = Ast.make_ext $startpos $endpos(x) } }

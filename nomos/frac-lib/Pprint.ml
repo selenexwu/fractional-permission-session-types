@@ -287,8 +287,8 @@ let pp_printable x =
 
 let rec pp_exp env i exp = match exp with
     A.Fwd(x,y) -> pp_chan x ^ " <- " ^ pp_chan y
-  | A.Spawn(x,f,xs,q) -> (* exp = x <- f <- xs ; q *)
-      pp_chan x ^ " <- " ^ f ^ " " ^ pp_argnames env xs ^ " ;\n"
+  | A.Spawn(a,x,f,xs,q) -> (* exp = x <- f <- xs ; q *)
+      "{" ^ a ^ "}, " ^ pp_chan x ^ " <- " ^ f ^ " " ^ pp_argnames env xs ^ " ;\n"
       ^ pp_exp_indent env i q
   | A.ExpName(x,f,xs) -> pp_chan x ^ " <- " ^ f ^ " " ^ pp_argnames env xs
   | A.Lab(x,k,p) -> pp_chan x ^ "." ^ k ^ " ;\n" ^ pp_exp_indent env i p
@@ -297,7 +297,7 @@ let rec pp_exp env i exp = match exp with
   | A.Recv(x,y,p) -> pp_chan y ^ " <- recv " ^ pp_chan x ^ " ;\n" ^ pp_exp_indent env i p
   | A.Close(x) -> "close " ^ pp_chan x
   | A.Wait(x,q) -> "wait " ^ pp_chan x ^ " ;\n" ^ pp_exp_indent env i q
-  | A.Immut(p) -> "immut {\n" ^ pp_exp_indent env (i+2) p ^ "\n" ^ spaces i ^ "}"
+  | A.Immut(xs,p) -> "immut " ^ pp_channames xs ^ " {\n" ^ pp_exp_indent env (i+2) p ^ "\n" ^ spaces i ^ "}"
   | A.Continue(xs) -> "continue " ^ pp_channames xs
   | A.Mut(p) -> "mut {\n" ^ pp_exp_indent env (i+2) p ^ "\n" ^ spaces i ^ "}"
   | A.Start(x,p) -> "start " ^ pp_chan x ^ " ;\n" ^ pp_exp_indent env i p
@@ -452,8 +452,8 @@ and pp_argnames env args = match args with
 
 let pp_exp_prefix exp = match exp with
     A.Fwd(x,y) -> pp_chan x ^ " <- " ^ pp_chan y
-  | A.Spawn(x,f,xs,_q) -> (* exp = x <- f <- xs ; q *)
-      pp_chan x ^ " <- " ^ f ^ " <- " ^ pp_argnames () xs ^ " ; ..."
+  | A.Spawn(a,x,f,xs,_q) -> (* exp = x <- f <- xs ; q *)
+      "{" ^ a ^ "}, " ^ pp_chan x ^ " <- " ^ f ^ " <- " ^ pp_argnames () xs ^ " ; ..."
   | A.ExpName(x,f,xs) -> pp_chan x ^ " <- " ^ f ^ " <- " ^ pp_argnames () xs
   | A.Lab(x,k,_p) -> pp_chan x ^ "." ^ k ^ " ; ..."
   | A.Case(x,_bs) -> "case " ^ pp_chan x ^ " ( ... )"
