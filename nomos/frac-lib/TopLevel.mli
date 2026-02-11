@@ -26,6 +26,8 @@ val read : string -> raw_transaction
 (* read a transaction from a string *)
 val read_txn : string -> raw_transaction
 
+val check : raw_transaction -> transaction
+
 (* typecheck and eliminate stars *)
 (* val infer : E.blockchain_state -> raw_transaction -> transaction *)
 

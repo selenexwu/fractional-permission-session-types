@@ -1,8 +1,8 @@
 module A = Ast
 module C = Core
-(* module E = Exec
-   module EL = Elab
-   module F = NomosFlags
+(* module E = Exec *)
+module EL = Elab
+(* module F = NomosFlags
    module I = Infer *)
 module Map = C.Map
 (* module PP = Pprint *)
@@ -85,6 +85,13 @@ let read_txn txn =
   let () = init lexbuf "txn.nom" in
   let (_imports, env) = parse_with_error lexbuf in
   RawTransaction env;;
+
+let check (RawTransaction decls) =
+  let t0 = Unix.gettimeofday () in
+  let () = EL.check_redecl decls in
+  let () = EL.check_valid decls decls in
+  let _elab_decls = EL.elab_decls decls decls in
+  Transaction decls
 
 (* check validity and typecheck environment *)
 (* let infer state (RawTransaction decls) =

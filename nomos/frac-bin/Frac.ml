@@ -8,5 +8,8 @@ module PP = Lib_frac.Pprint
 
 let () =
   let file = "frac-tests/queue.frac" in
-  let TL.RawTransaction rawtxn = TL.read file in
-  print_endline (PP.pp_prog rawtxn)
+  let rawtxn = TL.read file in
+  let TL.RawTransaction env = rawtxn in
+  let () = print_endline (PP.pp_prog env) in
+  let _txn = TL.check rawtxn in
+  ()

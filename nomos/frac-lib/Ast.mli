@@ -77,6 +77,16 @@ type chan_tp = chan * stype
 [@@deriving sexp]
 type label_proto = chan * proto
 [@@deriving sexp]
+
+type context =
+  {
+    idnames: idname list;
+    permnames: permname list;
+    owned: idname list;
+    locked: chan_tp list;
+    linear: chan_tp list;
+  }
+[@@deriving sexp]
              
 type decl =
   | TpDef of tpname * proto

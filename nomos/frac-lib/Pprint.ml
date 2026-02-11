@@ -136,16 +136,19 @@ let rec pp_lsctx env delta = match delta with
   | [(x,a)] -> "(" ^ pp_chan x ^ " : " ^ pp_proto_simple a ^ ")"
   | (x,a)::delta' -> "(" ^ pp_chan x ^ " : " ^ pp_proto_simple a ^ ")" ^ ", " ^ pp_lsctx env delta';;
 
-let pp_arg env (x,a) = "(" ^ pp_chan x ^ " : " ^ pp_tp_simple a ^ ")"
+let pp_arg (x,a) = "(" ^ pp_chan x ^ " : " ^ pp_tp_simple a ^ ")"
 
-let rec pp_arglist env ctx = match ctx with
+let rec pp_chantp_list ctx = match ctx with
     [] -> "."
-  | [xa] -> pp_arg env xa
-  | xa::ctx' -> pp_arg env xa ^ ", " ^ pp_arglist env ctx';;
+  | [xa] -> pp_arg xa
+  | xa::ctx' -> pp_arg xa ^ ", " ^ pp_chantp_list ctx';;
 
-(* pp_tp_compact env delta pot a = "delta |{p}- C", on one line *)
+(* pp_tp_compact env delta pot a = "V; O; ldelta; delta |-_N C", on one line *)
 let pp_tpj_compact env delta (x,a) =
-  pp_arglist env delta ^ " |- (" ^
+  pp_channames delta.A.idnames ^ "," ^
+  pp_channames delta.A.permnames ^ ";" ^
+  pp_chantp_list delta.A.locked ^ ";" ^
+  pp_chantp_list delta.A.linear ^ " |- (" ^
   pp_chan x ^ " : " ^ pp_proto_simple a ^ ")";;
 
 let pp_printable x = 
@@ -250,7 +253,7 @@ let pp_decl env dcl = match dcl with
     A.TpDef(v,a) ->
       pp_tp_after 0 ("type " ^ v ^ " = ") a
   | A.ExpDecDef(f,(ids,ps,delta,(x,a)),p) ->
-    "proc " ^ f ^ "[" ^ pp_channames ids ^ "]{" ^ pp_channames ps ^ "} : " ^ pp_arglist env delta ^ " |- "
+    "proc " ^ f ^ "[" ^ pp_channames ids ^ "]{" ^ pp_channames ps ^ "} : " ^ pp_chantp_list delta ^ " |- "
     ^ pp_label_proto (x,a) ^ " = \n" ^
     (pp_exp_indent env 2 p)
   | A.Exec(f, l) -> "exec " ^ f ^ " " ^ pp_argnames env l;;

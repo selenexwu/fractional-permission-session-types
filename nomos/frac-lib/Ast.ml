@@ -121,14 +121,15 @@ type chan_tp = chan * stype
 type label_proto = chan * proto
 [@@deriving sexp]
 
-(* TODO: will need to extend context probably *)
-(* type context =
-     {
-       shared: chan_tp list;
-       linear: chan_tp list;
-       ordered: argument list
-     }
-   [@@deriving sexp]   *)
+type context =
+  {
+    idnames: idname list;
+    permnames: permname list;
+    owned: idname list;
+    locked: chan_tp list;
+    linear: chan_tp list;
+  }
+[@@deriving sexp]
 
 type decl =
   | TpDef of tpname * proto                         (* type a = A *)
