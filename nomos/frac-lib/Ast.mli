@@ -32,8 +32,8 @@ and choices = (label * proto) list
 and 'a st_aug_expr = { st_structure : 'a st_expr; st_data : 'a; }
 and 'a st_expr =
     Fwd of chan * chan
-  | Spawn of idname * chan * expname * chan list * 'a st_aug_expr
-  | ExpName of chan * expname * chan list
+  | Spawn of idname * chan * expname * idname list * permname list * chan list * 'a st_aug_expr
+  | ExpName of chan * expname * idname list * permname list * chan list
   | Lab of chan * label * 'a st_aug_expr
   | Case of chan * 'a branches
   | Send of chan * chan * 'a st_aug_expr
@@ -73,16 +73,20 @@ type parsed_expr = ext st_aug_expr
 [@@deriving sexp]
 
 type typed_expr = stype st_aug_expr
-type chan_tp = chan * proto
+type chan_tp = chan * stype
+[@@deriving sexp]
+type label_proto = chan * proto
 [@@deriving sexp]
              
 type decl =
-    TpDef of tpname * proto
-  | ExpDecDef of expname * (chan_tp list * chan_tp) *
-      parsed_expr
+  | TpDef of tpname * proto
+  | ExpDecDef of expname *
+                 (idname list * permname list *
+                  chan_tp list * label_proto) *
+                 parsed_expr
   | Exec of expname * chan list
-[@@deriving sexp]                 
-          
+[@@deriving sexp]
+
 type program = (decl * ext) list
 type file = string list * program
 exception UndeclaredTp
@@ -90,7 +94,7 @@ val lookup_tp : (decl * 'a) list -> tpname -> proto option
 val expd_tp : (decl * 'a) list -> tpname -> proto
 val lookup_expdec :
   (decl * 'a) list ->
-  expname -> (chan_tp list * chan_tp) option
+  expname -> (idname list * permname list * chan_tp list * label_proto) option
 val lookup_expdef : (decl * 'a) list -> expname -> parsed_expr option
 val lookup_choice : ('a * 'b) list -> 'a -> 'b option
 val subst :

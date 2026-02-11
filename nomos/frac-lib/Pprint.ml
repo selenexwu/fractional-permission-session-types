@@ -74,7 +74,7 @@ and pp_choice_simple cs = match cs with
 
 let pp_chan (c) = c
 
-let pp_chan_tp (c,a) = "(" ^ pp_chan c ^ " : " ^ pp_proto_simple a ^ ")";;
+let pp_label_proto (c,a) = "(" ^ pp_chan c ^ " : " ^ pp_proto_simple a ^ ")";;
 
 let rec pp_channames chans = match chans with
     [] -> ""
@@ -129,31 +129,24 @@ and pp_choice i cs = match cs with
     ^ pp_choice_indent i cs'
 and pp_choice_indent i cs = spaces i ^ pp_choice i cs;;
 
-let pp_tp = fun _env -> fun a -> pp_proto 0 a;;
-
-(* pp_tp_compact env A = "A", without newlines
- * this first externalizes A, then prints on one line
- *)
-let pp_tp_compact _env a = pp_proto_simple a;;
+let pp_proto = fun _env -> fun a -> pp_proto 0 a;;
 
 let rec pp_lsctx env delta = match delta with
     [] -> "."
-  | [(x,a)] -> "(" ^ pp_chan x ^ " : " ^ pp_tp_compact env a ^ ")"
-  | (x,a)::delta' -> "(" ^ pp_chan x ^ " : " ^ pp_tp_compact env a ^ ")" ^ ", " ^ pp_lsctx env delta';;
+  | [(x,a)] -> "(" ^ pp_chan x ^ " : " ^ pp_proto_simple a ^ ")"
+  | (x,a)::delta' -> "(" ^ pp_chan x ^ " : " ^ pp_proto_simple a ^ ")" ^ ", " ^ pp_lsctx env delta';;
 
-let pp_arg env (x,a) = "(" ^ pp_chan x ^ " : " ^ pp_tp_compact env a ^ ")"
+let pp_arg env (x,a) = "(" ^ pp_chan x ^ " : " ^ pp_tp_simple a ^ ")"
 
 let rec pp_arglist env ctx = match ctx with
     [] -> "."
   | [xa] -> pp_arg env xa
   | xa::ctx' -> pp_arg env xa ^ ", " ^ pp_arglist env ctx';;
 
-let pp_ctx env delta = pp_arglist env delta;;
-
 (* pp_tp_compact env delta pot a = "delta |{p}- C", on one line *)
 let pp_tpj_compact env delta (x,a) =
-  pp_ctx env delta ^ " |- (" ^
-  pp_chan x ^ " : " ^ pp_tp_compact env a ^ ")";;
+  pp_arglist env delta ^ " |- (" ^
+  pp_chan x ^ " : " ^ pp_proto_simple a ^ ")";;
 
 let pp_printable x = 
   match x with
@@ -178,10 +171,10 @@ let pp_printable x =
 
 let rec pp_exp env i exp = match exp with
     A.Fwd(x,y) -> pp_chan x ^ " <- " ^ pp_chan y
-  | A.Spawn(a,x,f,xs,q) -> (* exp = x <- f <- xs ; q *)
-      "{" ^ a ^ "}, " ^ pp_chan x ^ " <- " ^ f ^ " " ^ pp_argnames env xs ^ " ;\n"
+  | A.Spawn(a,x,f,ids,ps,xs,q) -> (* exp = x <- f <- xs ; q *)
+      "{" ^ a ^ "}, " ^ pp_chan x ^ " <- " ^ f ^ "[" ^ pp_channames ids ^ "]{" ^ pp_channames ps ^ "} " ^ pp_argnames env xs ^ " ;\n"
       ^ pp_exp_indent env i q
-  | A.ExpName(x,f,xs) -> pp_chan x ^ " <- " ^ f ^ " " ^ pp_argnames env xs
+  | A.ExpName(x,f,ids,ps,xs) -> pp_chan x ^ " <- " ^ f ^ "[" ^ pp_channames ids ^ "]{" ^ pp_channames ps ^ "} " ^ pp_argnames env xs
   | A.Lab(x,k,p) -> pp_chan x ^ "." ^ k ^ " ;\n" ^ pp_exp_indent env i p
   | A.Case(x,bs) -> "case " ^ pp_chan x ^ " ( " ^ pp_branches env (i+8+len (pp_chan x)) bs ^ " )"
   | A.Send(x,w,p) -> "send " ^ pp_chan x ^ " " ^ pp_chan w ^ " ;\n" ^ pp_exp_indent env i p
@@ -237,9 +230,9 @@ and pp_argnames env args = match args with
 
 let pp_exp_prefix exp = match exp with
     A.Fwd(x,y) -> pp_chan x ^ " <- " ^ pp_chan y
-  | A.Spawn(a,x,f,xs,_q) -> (* exp = x <- f <- xs ; q *)
-      "{" ^ a ^ "}, " ^ pp_chan x ^ " <- " ^ f ^ " <- " ^ pp_argnames () xs ^ " ; ..."
-  | A.ExpName(x,f,xs) -> pp_chan x ^ " <- " ^ f ^ " <- " ^ pp_argnames () xs
+  | A.Spawn(a,x,f,ids,ps,xs,_q) -> (* exp = x <- f <- xs ; q *)
+      "{" ^ a ^ "}, " ^ pp_chan x ^ " <- " ^ f ^ "[" ^ pp_channames ids ^ "][" ^ pp_channames ps ^ "] <- " ^ pp_argnames () xs ^ " ; ..."
+  | A.ExpName(x,f,ids,ps,xs) -> pp_chan x ^ " <- " ^ f ^ "[" ^ pp_channames ids ^ "]{" ^ pp_channames ps ^ "} <- " ^ pp_argnames () xs
   | A.Lab(x,k,_p) -> pp_chan x ^ "." ^ k ^ " ; ..."
   | A.Case(x,_bs) -> "case " ^ pp_chan x ^ " ( ... )"
   | A.Send(x,w,_p) -> "send " ^ pp_chan x ^ " " ^ pp_chan w ^ " ; ..."
@@ -256,9 +249,9 @@ let pp_exp_prefix exp = match exp with
 let pp_decl env dcl = match dcl with
     A.TpDef(v,a) ->
       pp_tp_after 0 ("type " ^ v ^ " = ") a
-  | A.ExpDecDef(f,(delta,(x,a)),p) ->
-    "proc " ^ f ^ " : " ^ pp_ctx env delta ^ " |- "
-    ^ pp_chan_tp (x,a) ^ " = \n" ^
+  | A.ExpDecDef(f,(ids,ps,delta,(x,a)),p) ->
+    "proc " ^ f ^ "[" ^ pp_channames ids ^ "]{" ^ pp_channames ps ^ "} : " ^ pp_arglist env delta ^ " |- "
+    ^ pp_label_proto (x,a) ^ " = \n" ^
     (pp_exp_indent env 2 p)
   | A.Exec(f, l) -> "exec " ^ f ^ " " ^ pp_argnames env l;;
 

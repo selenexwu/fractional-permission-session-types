@@ -5,7 +5,7 @@ proc zero : . |- (n : nat) =
   n.zero;
   close n
 
-proc succ : (n : nat) |- (n1 : nat) =
+proc succ[ni] : (n : <nat,*,ni>) |- (n1 : nat) =
   n1.succ;
   n1 <- n
 
@@ -38,7 +38,7 @@ proc empty : . |- (q : queue) =
     )
   }
 
-proc elem : (x : A), (t : queue) |- (q : queue) =
+proc elem[xi,ti] : (x : <A,*,xi>), (t : <queue,*,ti>) |- (q : queue) =
   immut x t {
     case q (
       ins => mut {
@@ -47,13 +47,13 @@ proc elem : (x : A), (t : queue) |- (q : queue) =
         t.ins;
         send t {yi};
         send t y;
-        q <- elem x t
+        q <- elem[xi,ti] x t
       }
     | del => mut {
         q.some;
         send q {xi};
         send q x;
-        q <- t
+        q <-> t
       }
     | len =>
         t.len;

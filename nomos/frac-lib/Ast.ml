@@ -55,8 +55,10 @@ and 'a st_expr =
   (* judgmental constructs *)
   | Fwd of chan * chan                                      (* x <- y *)
   | Spawn of idname * chan * expname *
-    chan list * 'a st_aug_expr                              (* {a}, x <- f <- [y] ; Q *)
-  | ExpName of chan * expname * chan list                   (* x <- f <- [y] *)
+             idname list * permname list * chan list *
+             'a st_aug_expr                                 (* {a}, x <- f[a][p] <- [y] ; Q *)
+  | ExpName of chan * expname * idname list *
+               permname list * chan list                    (* x <- f <- [y] *)
 
   (* choice +{...} or &{...} *)
   | Lab of chan * label * 'a st_aug_expr                    (* x.k ; P *)
@@ -113,7 +115,10 @@ type parsed_expr = ext st_aug_expr
 
 type typed_expr = stype st_aug_expr
 
-type chan_tp = chan * proto
+type chan_tp = chan * stype
+[@@deriving sexp]
+
+type label_proto = chan * proto
 [@@deriving sexp]
 
 (* TODO: will need to extend context probably *)
@@ -126,11 +131,12 @@ type chan_tp = chan * proto
    [@@deriving sexp]   *)
 
 type decl =
-  | TpDef of tpname * proto                   (* type a = A *)
+  | TpDef of tpname * proto                         (* type a = A *)
   | ExpDecDef of expname *
-    (chan_tp list * chan_tp) *         (* proc f : Delta |- c : C = expression *)
-    parsed_expr
-  | Exec of expname * chan list               (* exec f x1 x2 ... *)
+                 (idname list * permname list *
+                  chan_tp list * label_proto) *         (* proc f[a][p] : Delta |- c : C = expression *)
+                 parsed_expr
+  | Exec of expname * chan list                     (* exec f x1 x2 ... *)
 [@@deriving sexp]
           
 
@@ -154,8 +160,8 @@ let expd_tp env v = match lookup_tp env v with
   | None -> raise UndeclaredTp;;
 
 let rec lookup_expdec decls f = match decls with
-    (ExpDecDef(f',(ctx, zc),_p), _)::decls' ->
-      if f = f' then Some (ctx,zc) else lookup_expdec decls' f
+    (ExpDecDef(f',(ids, perms, ctx, zc),_p), _)::decls' ->
+      if f = f' then Some (ids,perms,ctx,zc) else lookup_expdec decls' f
   | _decl::decls' -> lookup_expdec decls' f
   | [] -> None;;
 
@@ -187,11 +193,11 @@ let subst_list c' c l = List.map (fun a -> sub_arg c' c a) l;;
 
 let rec subst c' c expr = match expr with
     Fwd(x,y) -> Fwd(sub c' c x, sub c' c y)
-  | Spawn(a,x,f,xs,q) ->
+  | Spawn(a,x,f,ids,ps,xs,q) ->
       if eq_name c x
-      then Spawn(a,x,f, subst_list c' c xs, q)
-      else Spawn(a,x,f, subst_list c' c xs, subst_aug c' c q)
-  | ExpName(x,f,xs) -> ExpName(x,f, subst_list c' c xs)
+      then Spawn(a,x,f,ids,ps, subst_list c' c xs, q)
+      else Spawn(a,x,f,ids,ps, subst_list c' c xs, subst_aug c' c q)
+  | ExpName(x,f,ids,ps,xs) -> ExpName(x,f,ids,ps, subst_list c' c xs)
   | Lab(x,k,p) -> Lab(sub c' c x, k, subst_aug c' c p)
   | Case(x,branches) -> Case(sub c' c x, subst_branches c' c branches)
   | Send(x,w,p) -> Send(sub c' c x, sub c' c w, subst_aug c' c p)
