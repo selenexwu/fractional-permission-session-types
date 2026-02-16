@@ -2,7 +2,6 @@ open Sexplib.Std
 module R = Arith
 
 type ext = Mark.ext option      (* optional extent (source region info) *)
-[@@deriving sexp]
 
 let make_ext (startpos : Lexing.position) (endpos : Lexing.position): ext =
   Some(((startpos.Lexing.pos_lnum, startpos.Lexing.pos_cnum - startpos.Lexing.pos_bol + 1),
@@ -10,19 +9,45 @@ let make_ext (startpos : Lexing.position) (endpos : Lexing.position): ext =
         startpos.Lexing.pos_fname))
 
 (* Session Types *)
-type label = string [@@deriving sexp] (* l,k for internal and external choice *)
+type label = string (* l,k for internal and external choice *)
 type tpname = string            (* v, for types defined with v = A *)
-[@@deriving sexp]
-type expname = string [@@deriving sexp] (* f, for processes defined with f = P *)
-type permname = string [@@deriving sexp] (* p, for permissions *)
-type idname = string [@@deriving sexp] (* a, b, for identifiers *)
+type expname = string  (* f, for processes defined with f = P *)
+type permname = string (* p, for permissions *)
+type idname = string (* a, b, for identifiers *)
+
+module StringMap = Map.Make(String)
 
 (* Permissions *)
 type perm =
   | Owned
-  | Fraction of float
-  | VarPerm of permname
-[@@deriving sexp]
+  | Fractional of float StringMap.t
+
+let perm_is_simple p =
+  match p with
+  | Owned -> true
+  | Fractional pm -> StringMap.cardinal pm = 1 && StringMap.mem "" pm
+
+exception NonlinearPerm
+
+let perm_mult p1 p2 =
+  match p1, p2 with
+  | Owned, _ -> Owned
+  | _, Owned -> p1
+  | Fractional p1, Fractional p2 ->
+    if perm_is_simple (Fractional p1) then
+      let p1 = StringMap.find "" p1 in
+      Fractional (StringMap.map (fun x -> x *. p1) p2)
+    else if perm_is_simple (Fractional p2) then
+      let p2 = StringMap.find "" p2 in
+      Fractional (StringMap.map (fun x -> x *. p2) p1)
+    else raise NonlinearPerm
+
+let perm_add p1 p2 =
+  match p1, p2 with
+  | Owned, _ | _, Owned -> Owned
+  | Fractional p1, Fractional p2 ->
+    Fractional (StringMap.union (fun _v x1 x2 -> Some (x1 +. x2)) p1 p2)
+
 
 type chan = string       (* channel name *)
 [@@deriving sexp]
@@ -42,7 +67,6 @@ and proto =
   | ForallId of idname * proto        (* !a. A *)
   | ExistsPerm of permname * proto    (* ??a. A *)
   | ForallPerm of permname * proto    (* !!a. A *)
-[@@deriving sexp]
 
 and choices = (label * proto) list
 
@@ -104,22 +128,18 @@ and printable =
   | PAddr 
   | PChan
   | PNewline
-[@@deriving sexp]
 
 and 'a branch = label * 'a st_aug_expr
 
 and 'a branches = 'a branch list                          (* (l1 => P1 | ... | ln => Pn) *)
 
 type parsed_expr = ext st_aug_expr
-[@@deriving sexp]
 
 type typed_expr = stype st_aug_expr
 
 type chan_tp = chan * stype
-[@@deriving sexp]
 
 type label_proto = chan * proto
-[@@deriving sexp]
 
 type context =
   {
@@ -129,7 +149,6 @@ type context =
     locked: chan_tp list;
     linear: chan_tp list;
   }
-[@@deriving sexp]
 
 type decl =
   | TpDef of tpname * proto                         (* type a = A *)
@@ -138,8 +157,7 @@ type decl =
                   chan_tp list * label_proto) *         (* proc f[a][p] : Delta |- c : C = expression *)
                  parsed_expr
   | Exec of expname * chan list                     (* exec f x1 x2 ... *)
-[@@deriving sexp]
-          
+
 
 type program = (decl * ext) list
 

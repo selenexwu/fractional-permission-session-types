@@ -14,16 +14,12 @@ module LEX = Lexer
 module L = Lexing
 (* module G = GasAcct *)
 module EM = ErrorMsg
-open Sexplib.Std
 
 type environment = (A.decl * A.ext) list
-[@@deriving sexp]                 
 
 type raw_transaction = RawTransaction of environment
-[@@deriving sexp]
-                                       
+
 type transaction = Transaction of environment
-[@@deriving sexp]                                
 
 (*********************************)
 (* Loading and Elaborating Files *)

@@ -51,8 +51,7 @@ let len s = String.length s;;
 
 let pp_perm p = match p with
   | A.Owned -> "*"
-  | A.Fraction(f) -> string_of_float f
-  | A.VarPerm(p) -> p
+  | A.Fractional(pm) -> String.concat "+" @@ List.map (fun (v, x) -> string_of_float x ^ v) @@ A.StringMap.bindings pm
 
 let rec pp_tp_simple (a,p,id) =
   "<" ^ pp_proto_simple a ^ "," ^ pp_perm p ^ "," ^ id ^ ">"

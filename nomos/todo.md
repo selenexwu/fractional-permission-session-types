@@ -1,6 +1,7 @@
 # TODO
 
 - Anything marked with TODO in code
+- Better permission parsing
 
 # Done
 - add cases to type ast for new types

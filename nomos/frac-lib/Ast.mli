@@ -1,17 +1,20 @@
 module R = Arith
-type ext = Mark.ext option [@@deriving sexp]
+type ext = Mark.ext option
 val make_ext : Lexing.position -> Lexing.position -> ext
 type label = string
-type tpname = string [@@deriving sexp]
+type tpname = string
 type expname = string
-type permname = string [@@deriving sexp]
-type idname = string [@@deriving sexp]
+type permname = string
+type idname = string
+module StringMap : Map.S with type key = string
 type perm =
   | Owned
-  | Fraction of float
-  | VarPerm of permname
-[@@deriving sexp]
-type chan = string [@@deriving sexp]
+  | Fractional of float StringMap.t
+val perm_is_simple : perm -> bool
+exception NonlinearPerm
+val perm_mult : perm -> perm -> perm
+val perm_add : perm -> perm -> perm
+type chan = string
 type stype = proto * perm * idname
 and proto =
     Plus of choices
@@ -28,7 +31,6 @@ and proto =
   | ExistsPerm of permname * proto
   | ForallPerm of permname * proto
 and choices = (label * proto) list
-[@@deriving sexp]
 and 'a st_aug_expr = { st_structure : 'a st_expr; st_data : 'a; }
 and 'a st_expr =
     Fwd of chan * chan
@@ -56,7 +58,7 @@ and 'a st_expr =
   | RecvPerm of chan * permname * 'a st_aug_expr
   | Abort
   | Print of printable list * chan list * 'a st_aug_expr
-  [@@deriving sexp]
+
 and printable = 
     Word of string
   | PInt 
@@ -65,18 +67,18 @@ and printable =
   | PAddr 
   | PChan
   | PNewline
-  [@@deriving sexp]
+
 
 and 'a branch = label * 'a st_aug_expr
 and 'a branches = 'a branch list
 type parsed_expr = ext st_aug_expr
-[@@deriving sexp]
+
 
 type typed_expr = stype st_aug_expr
 type chan_tp = chan * stype
-[@@deriving sexp]
+
 type label_proto = chan * proto
-[@@deriving sexp]
+
 
 type context =
   {
@@ -86,7 +88,7 @@ type context =
     locked: chan_tp list;
     linear: chan_tp list;
   }
-[@@deriving sexp]
+
              
 type decl =
   | TpDef of tpname * proto
@@ -95,7 +97,7 @@ type decl =
                   chan_tp list * label_proto) *
                  parsed_expr
   | Exec of expname * chan list
-[@@deriving sexp]
+
 
 type program = (decl * ext) list
 type file = string list * program
