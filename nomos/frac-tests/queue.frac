@@ -7,7 +7,7 @@ proc zero : . |- (n : nat) =
 
 proc succ[ni] : (n : <nat,*,ni>) |- (n1 : nat) =
   n1.succ;
-  n1 <- n
+  n1 <-> n
 
 type A = 1
 
@@ -24,7 +24,7 @@ proc empty : . |- (q : queue) =
         {xi} <- recv q;
         x <- recv q;
         {ei}, e <- empty;
-        q <- elem x e
+        q <- elem[xi,ei] x e
       }
     | del => mut {
         q.none;

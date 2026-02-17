@@ -79,14 +79,15 @@ let rec elab_decl env dcls = match dcls with
             | F.Explicit -> ()
         end
       in
-      let () = try TC.checkexp false env delta p (x,a) ext' (* approx. type check *)
+      let ctx = { A.idnames = ids ; A.permnames = ps ; A.owned = [] ; A.locked = [] ; A.linear = delta } in
+      let () = try TC.checkexp false env ctx p (x,a) ext' None (* approx. type check *)
                with EM.TypeError msg ->
                   (* if verbosity >= 2, type-check again, this time with tracing *)
                   if !F.verbosity >= 2
                     then
                       begin
                         print_string ("% tracing type checking...\n")
-                        ; TC.checkexp true env delta p (x,a) ext'
+                        ; TC.checkexp true env ctx p (x,a) ext' None
                       end (* will re-raise ErrorMsg.Error *)
                   else raise (EM.TypeError msg) (* re-raise if not in verbose mode *) in
       (A.ExpDecDef(f,(ids,ps,delta,(x,a)),p), ext')::(elab_decl env dcls')

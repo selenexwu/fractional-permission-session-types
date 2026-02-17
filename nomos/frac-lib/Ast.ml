@@ -22,10 +22,19 @@ type perm =
   | Owned
   | Fractional of float StringMap.t
 
+let perm_const x =
+  Fractional (StringMap.singleton "" x)
+
 let perm_is_simple p =
   match p with
   | Owned -> true
   | Fractional pm -> StringMap.cardinal pm = 1 && StringMap.mem "" pm
+
+let perm_eq p1 p2 =
+  match p1, p2 with
+  | Owned, Owned -> true
+  | Fractional p1, Fractional p2 -> StringMap.equal (=) p1 p2
+  | _, _ -> false
 
 exception NonlinearPerm
 
@@ -79,10 +88,10 @@ and 'a st_expr =
   (* judgmental constructs *)
   | Fwd of chan * chan                                      (* x <- y *)
   | Spawn of idname * chan * expname *
-             idname list * permname list * chan list *
-             'a st_aug_expr                                 (* {a}, x <- f[a][p] <- [y] ; Q *)
+             idname list * perm list * chan list *
+             'a st_aug_expr                                 (* {a}, x <- f[a]{p} <- [y] ; Q *)
   | ExpName of chan * expname * idname list *
-               permname list * chan list                    (* x <- f <- [y] *)
+               perm list * chan list                        (* x <- f[a]{p} <- [y] *)
 
   (* choice +{...} or &{...} *)
   | Lab of chan * label * 'a st_aug_expr                    (* x.k ; P *)
@@ -122,10 +131,6 @@ and 'a st_expr =
 
 and printable = 
     Word of string
-  | PInt 
-  | PBool 
-  | PStr 
-  | PAddr 
   | PChan
   | PNewline
 
@@ -149,6 +154,8 @@ type context =
     locked: chan_tp list;
     linear: chan_tp list;
   }
+
+type cont = (chan_tp list * proto * idname list) option
 
 type decl =
   | TpDef of tpname * proto                         (* type a = A *)
@@ -203,17 +210,12 @@ let rec lookup_choice cs k = match cs with
 let sub c' c x =
   if x = c then c' else x
 
-let sub_arg c' c a = match a with
-  | x -> (sub c' c x);;
-
-let eq_name c1 c2 = (c1 = c2)
-
-let subst_list c' c l = List.map (fun a -> sub_arg c' c a) l;; 
+let subst_list c' c l = List.map (fun a -> sub c' c a) l;;
 
 let rec subst c' c expr = match expr with
     Fwd(x,y) -> Fwd(sub c' c x, sub c' c y)
   | Spawn(a,x,f,ids,ps,xs,q) ->
-      if eq_name c x
+      if c = x
       then Spawn(a,x,f,ids,ps, subst_list c' c xs, q)
       else Spawn(a,x,f,ids,ps, subst_list c' c xs, subst_aug c' c q)
   | ExpName(x,f,ids,ps,xs) -> ExpName(x,f,ids,ps, subst_list c' c xs)
@@ -221,7 +223,7 @@ let rec subst c' c expr = match expr with
   | Case(x,branches) -> Case(sub c' c x, subst_branches c' c branches)
   | Send(x,w,p) -> Send(sub c' c x, sub c' c w, subst_aug c' c p)
   | Recv(x,y,p) ->
-      if eq_name c y
+      if c = y
       then Recv(sub c' c x, y, p)
       else Recv(sub c' c x, y, subst_aug c' c p)
   | Close(x) -> Close(sub c' c x)
@@ -247,3 +249,65 @@ let split_last l =
     match revl with
         [] -> raise AstImpossible
       | e::es -> (List.rev es, e);;
+
+let subst_perm p' v p =
+  match p with
+  | Owned -> Owned
+  | Fractional p ->
+    match StringMap.find_opt v p with
+    | None -> Fractional p
+    | Some x -> perm_add (Fractional (StringMap.remove v p)) (perm_mult p' (perm_const x))
+
+let rec proto_subst_perm p' v a = match a with
+  | Plus cs -> Plus (List.map (fun (l,a) -> (l, proto_subst_perm p' v a)) cs)
+  | With cs -> With (List.map (fun (l,a) -> (l, proto_subst_perm p' v a)) cs)
+  | Tensor (t,b) -> Tensor (stype_subst_perm p' v t, proto_subst_perm p' v b)
+  | Lolli (t,b) -> Lolli (stype_subst_perm p' v t, proto_subst_perm p' v b)
+  | One -> One
+  | TpName x -> TpName x
+  | Up a -> Up (proto_subst_perm p' v a)
+  | Down a -> Down (proto_subst_perm p' v a)
+  | DoubleDown a -> DoubleDown (proto_subst_perm p' v a)
+  | ExistsId (x, a) -> ExistsId (x, proto_subst_perm p' v a)
+  | ForallId (x, a) -> ForallId (x, proto_subst_perm p' v a)
+  | ExistsPerm (x, a) ->
+    if x = v then
+      ExistsPerm (x, a)
+    else
+      ExistsPerm (x, proto_subst_perm p' v a)
+  | ForallPerm (x, a) ->
+    if x = v then
+      ForallPerm (x, a)
+    else
+      ForallPerm (x, proto_subst_perm p' v a)
+and stype_subst_perm p' v (a, p, id) = (proto_subst_perm p' v a, subst_perm p' v p, id)
+
+let proto_subst_perms = List.fold_right2 proto_subst_perm
+let stype_subst_perms = List.fold_right2 stype_subst_perm
+
+let rec proto_subst_id id' v a = match a with
+  | Plus cs -> Plus (List.map (fun (l,a) -> (l, proto_subst_id id' v a)) cs)
+  | With cs -> With (List.map (fun (l,a) -> (l, proto_subst_id id' v a)) cs)
+  | Tensor (t,b) -> Tensor (stype_subst_id id' v t, proto_subst_id id' v b)
+  | Lolli (t,b) -> Lolli (stype_subst_id id' v t, proto_subst_id id' v b)
+  | One -> One
+  | TpName x -> TpName x
+  | Up a -> Up (proto_subst_id id' v a)
+  | Down a -> Down (proto_subst_id id' v a)
+  | DoubleDown a -> DoubleDown (proto_subst_id id' v a)
+  | ExistsId (x, a) ->
+    if x = v then
+      ExistsId (x, a)
+    else
+      ExistsId (x, proto_subst_id id' v a)
+  | ForallId (x, a) ->
+    if x = v then
+      ForallId (x, a)
+    else
+      ForallId (x, proto_subst_id id' v a)
+  | ExistsPerm (x, a) -> ExistsPerm (x, proto_subst_id id' v a)
+  | ForallPerm (x, a) -> ForallPerm (x, proto_subst_id id' v a)
+and stype_subst_id id' v (a, p, id) = (proto_subst_id id' v a, p, sub id' v id)
+
+let proto_subst_ids = List.fold_right2 proto_subst_id
+let stype_subst_ids = List.fold_right2 stype_subst_id

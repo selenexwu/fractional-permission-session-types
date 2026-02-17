@@ -53,6 +53,8 @@ let pp_perm p = match p with
   | A.Owned -> "*"
   | A.Fractional(pm) -> String.concat "+" @@ List.map (fun (v, x) -> string_of_float x ^ v) @@ A.StringMap.bindings pm
 
+let pp_perms ps = String.concat " " (List.map pp_perm ps)
+
 let rec pp_tp_simple (a,p,id) =
   "<" ^ pp_proto_simple a ^ "," ^ pp_perm p ^ "," ^ id ^ ">"
 and pp_proto_simple a = match a with
@@ -64,6 +66,7 @@ and pp_proto_simple a = match a with
   | A.Up(a) -> "/\\ " ^ pp_proto_simple a
   | A.Down(a) -> "\\/ " ^ pp_proto_simple a
   | A.TpName(a) -> a
+  | _ -> "THING"
 
 and pp_choice_simple cs = match cs with
     [] -> ""
@@ -75,10 +78,7 @@ let pp_chan (c) = c
 
 let pp_label_proto (c,a) = "(" ^ pp_chan c ^ " : " ^ pp_proto_simple a ^ ")";;
 
-let rec pp_channames chans = match chans with
-    [] -> ""
-  | [c] -> pp_chan c
-  | c::chans' -> pp_chan c ^ " " ^ pp_channames chans';;
+let pp_channames chans = String.concat " " chans
 
 (* pp_proto i A = "A", where i is the indentation after a newline
  * A must be externalized, or internal name '%n' will be printed
@@ -153,10 +153,6 @@ let pp_tpj_compact env delta (x,a) =
 let pp_printable x = 
   match x with
       A.Word(s) -> s 
-    | A.PInt ->  "%d"
-    | A.PBool -> "%b"
-    | A.PStr ->  "%s"
-    | A.PAddr -> "%a"
     | A.PChan -> "%c"
     | A.PNewline -> "\\n";;
 
@@ -174,9 +170,9 @@ let pp_printable x =
 let rec pp_exp env i exp = match exp with
     A.Fwd(x,y) -> pp_chan x ^ " <- " ^ pp_chan y
   | A.Spawn(a,x,f,ids,ps,xs,q) -> (* exp = x <- f <- xs ; q *)
-      "{" ^ a ^ "}, " ^ pp_chan x ^ " <- " ^ f ^ "[" ^ pp_channames ids ^ "]{" ^ pp_channames ps ^ "} " ^ pp_argnames env xs ^ " ;\n"
+      "{" ^ a ^ "}, " ^ pp_chan x ^ " <- " ^ f ^ "[" ^ pp_channames ids ^ "]{" ^ pp_perms ps ^ "} " ^ pp_argnames env xs ^ " ;\n"
       ^ pp_exp_indent env i q
-  | A.ExpName(x,f,ids,ps,xs) -> pp_chan x ^ " <- " ^ f ^ "[" ^ pp_channames ids ^ "]{" ^ pp_channames ps ^ "} " ^ pp_argnames env xs
+  | A.ExpName(x,f,ids,ps,xs) -> pp_chan x ^ " <- " ^ f ^ "[" ^ pp_channames ids ^ "]{" ^ pp_perms ps ^ "} " ^ pp_argnames env xs
   | A.Lab(x,k,p) -> pp_chan x ^ "." ^ k ^ " ;\n" ^ pp_exp_indent env i p
   | A.Case(x,bs) -> "case " ^ pp_chan x ^ " ( " ^ pp_branches env (i+8+len (pp_chan x)) bs ^ " )"
   | A.Send(x,w,p) -> "send " ^ pp_chan x ^ " " ^ pp_chan w ^ " ;\n" ^ pp_exp_indent env i p
@@ -233,14 +229,28 @@ and pp_argnames env args = match args with
 let pp_exp_prefix exp = match exp with
     A.Fwd(x,y) -> pp_chan x ^ " <- " ^ pp_chan y
   | A.Spawn(a,x,f,ids,ps,xs,_q) -> (* exp = x <- f <- xs ; q *)
-      "{" ^ a ^ "}, " ^ pp_chan x ^ " <- " ^ f ^ "[" ^ pp_channames ids ^ "][" ^ pp_channames ps ^ "] <- " ^ pp_argnames () xs ^ " ; ..."
-  | A.ExpName(x,f,ids,ps,xs) -> pp_chan x ^ " <- " ^ f ^ "[" ^ pp_channames ids ^ "]{" ^ pp_channames ps ^ "} <- " ^ pp_argnames () xs
+      "{" ^ a ^ "}, " ^ pp_chan x ^ " <- " ^ f ^ "[" ^ pp_channames ids ^ "][" ^ pp_perms ps ^ "] <- " ^ pp_argnames () xs ^ " ; ..."
+  | A.ExpName(x,f,ids,ps,xs) -> pp_chan x ^ " <- " ^ f ^ "[" ^ pp_channames ids ^ "]{" ^ pp_perms ps ^ "} <- " ^ pp_argnames () xs
   | A.Lab(x,k,_p) -> pp_chan x ^ "." ^ k ^ " ; ..."
   | A.Case(x,_bs) -> "case " ^ pp_chan x ^ " ( ... )"
   | A.Send(x,w,_p) -> "send " ^ pp_chan x ^ " " ^ pp_chan w ^ " ; ..."
   | A.Recv(x,y,_p) -> pp_chan y ^ " <- recv " ^ pp_chan x ^ " ; ..."
   | A.Close(x) -> "close " ^ pp_chan x
   | A.Wait(x,_q) -> "wait " ^ pp_chan x ^ " ; ..."
+  | A.Immut(xs,_p) -> "immut " ^ pp_channames xs ^ " { ... }"
+  | A.Continue(xs) -> "continue " ^ pp_channames xs
+  | A.Mut(_p) -> "mut { ... }"
+  | A.Start(x,_p) -> "start " ^ pp_chan x ^ " ; ..."
+  | A.Finish(x,_p) -> "finish " ^ pp_chan x ^ " ; ..."
+  | A.Mutate(x,_p) -> "mutate " ^ pp_chan x ^ " ; ..."
+  | A.Split(x1,x2,x,_p) -> pp_chan x1 ^ ", " ^ pp_chan x2 ^ " <- split " ^ pp_chan x ^ " ; ..."
+  | A.Merge(x,x1,x2,_p) -> pp_chan x ^ " <- merge " ^ pp_chan x1 ^ ", " ^ pp_chan x2 ^ " ; ..."
+  | A.Share(x,_p) -> "share " ^ pp_chan x ^ " ; ..."
+  | A.Own(x,_p) -> "own " ^ pp_chan x ^ " ; ..."
+  | A.SendId(x,a,_p) -> "send " ^ pp_chan x ^ " {" ^ a ^ "} ; ..."
+  | A.RecvId(x,a,_p) -> "{" ^ a ^ "} <- recv " ^ pp_chan x ^ " ; ..."
+  | A.SendPerm(x,a,_p) -> "send " ^ pp_chan x ^ " {{" ^ pp_perm a ^ "}} ; ..."
+  | A.RecvPerm(x,a,_p) -> "{{" ^ a ^ "}} <- recv " ^ pp_chan x ^ " ; ..."
   | A.Abort -> "abort"
   | A.Print(l,args,_) -> "print(" ^ pp_printable_list () l args ^ "); ..."
 

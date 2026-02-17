@@ -107,10 +107,6 @@ and printable_items = parse
     ' '                 { quoted_string := (Ast.Word(" "))::(!quoted_string); printable_items lexbuf }
   | '\t'                { quoted_string := (Ast.Word("\t"))::(!quoted_string); printable_items lexbuf }
   | '"'                 { QUOTED_STRING (!quoted_string) }
-  | "%d"                { quoted_string := (Ast.PInt)::(!quoted_string); printable_items lexbuf }
-  | "%b"                { quoted_string := (Ast.PBool)::(!quoted_string); printable_items lexbuf }
-  | "%s"                { quoted_string := (Ast.PStr)::(!quoted_string); printable_items lexbuf }
-  | "%a"                { quoted_string := (Ast.PAddr)::(!quoted_string); printable_items lexbuf }
   | "%c"                { quoted_string := (Ast.PChan)::(!quoted_string); printable_items lexbuf }
   | '\\' 'n'            { quoted_string := (Ast.PNewline)::(!quoted_string); printable_items lexbuf }
   | [^ '"' '\\' '%']+ as word { quoted_string := (Ast.Word(word))::(!quoted_string); printable_items lexbuf }

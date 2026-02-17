@@ -11,6 +11,7 @@ type perm =
   | Owned
   | Fractional of float StringMap.t
 val perm_is_simple : perm -> bool
+val perm_eq : perm -> perm -> bool
 exception NonlinearPerm
 val perm_mult : perm -> perm -> perm
 val perm_add : perm -> perm -> perm
@@ -34,8 +35,8 @@ and choices = (label * proto) list
 and 'a st_aug_expr = { st_structure : 'a st_expr; st_data : 'a; }
 and 'a st_expr =
     Fwd of chan * chan
-  | Spawn of idname * chan * expname * idname list * permname list * chan list * 'a st_aug_expr
-  | ExpName of chan * expname * idname list * permname list * chan list
+  | Spawn of idname * chan * expname * idname list * perm list * chan list * 'a st_aug_expr
+  | ExpName of chan * expname * idname list * perm list * chan list
   | Lab of chan * label * 'a st_aug_expr
   | Case of chan * 'a branches
   | Send of chan * chan * 'a st_aug_expr
@@ -61,10 +62,6 @@ and 'a st_expr =
 
 and printable = 
     Word of string
-  | PInt 
-  | PBool 
-  | PStr 
-  | PAddr 
   | PChan
   | PNewline
 
@@ -89,6 +86,7 @@ type context =
     linear: chan_tp list;
   }
 
+type cont = (chan_tp list * proto * idname list) option
              
 type decl =
   | TpDef of tpname * proto
@@ -114,3 +112,12 @@ val subst :
 val subst_aug :
   string -> string -> 'a st_aug_expr -> 'a st_aug_expr
 val split_last : 'a list -> 'a list * 'a
+
+val proto_subst_perm : perm -> permname -> proto -> proto
+val stype_subst_perm : perm -> permname -> stype -> stype
+val proto_subst_perms : perm list -> permname list -> proto -> proto
+val stype_subst_perms : perm list -> permname list -> stype -> stype
+val proto_subst_id : idname -> idname -> proto -> proto
+val stype_subst_id : idname -> idname -> stype -> stype
+val proto_subst_ids : idname list -> idname list -> proto -> proto
+val stype_subst_ids : idname list -> idname list -> stype -> stype

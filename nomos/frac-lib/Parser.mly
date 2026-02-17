@@ -73,7 +73,7 @@ proto:
 
 decl:
     | TYPE; x = ID; EQUALS; t = proto                                                                                                           { (Ast.TpDef (x,t), Ast.make_ext $startpos $endpos) }
-    | PROC; f = ID; ids = id_list; ps = perm_list; COLON; args = args_opt; TURNSTILE; LPAREN; c = ID; COLON; t = proto; RPAREN; EQUALS; e = st  { (Ast.ExpDecDef(f, (ids, ps, args, (c,t)), e), Ast.make_ext $startpos $endpos) }
+    | PROC; f = ID; ids = id_list; ps = permname_list; COLON; args = args_opt; TURNSTILE; LPAREN; c = ID; COLON; t = proto; RPAREN; EQUALS; e = st  { (Ast.ExpDecDef(f, (ids, ps, args, (c,t)), e), Ast.make_ext $startpos $endpos) }
     | EXEC; f = ID; l = list(ID)                                                                                                                { (Ast.Exec(f,l), Ast.make_ext $startpos $endpos) }
     ;
 
@@ -103,9 +103,13 @@ id_list:
     | LSQUARE; ids = separated_list(COMMA, ID); RSQUARE { ids }
     ;
 
-perm_list:
+permname_list:
     | { [] }
     | LBRACE; ids = separated_list(COMMA, ID); RBRACE { ids }
+
+perm_list:
+    | { [] }
+    | LBRACE; ids = separated_list(COMMA, perm); RBRACE { ids }
 
 st:
     |  LBRACE; a = ID; RBRACE; COMMA; x = ID; LARROW; f = ID; ids = id_list; ps = perm_list xs = list(ID); SEMI; p = st  { {st_structure = Ast.Spawn(a, x, f, ids, ps, xs, p); st_data = Ast.make_ext $startpos $endpos(xs) } }

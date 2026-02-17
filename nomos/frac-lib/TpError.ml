@@ -22,7 +22,7 @@ let error_label_missing_alt (l) ext =
   error ext ("label " ^ l ^ " does not appear among the alternatives in the type")
 
 let error_label_invalid env (l, a, c) ext =
-  error ext ("label " ^ l ^ " not a valid alternative in type " ^ PP.pp_proto env a ^ " of channel " ^ PP.pp_chan c)
+  error ext ("label " ^ l ^ " not a valid alternative in type " ^ PP.pp_proto env a ^ " of channel " ^ c)
 
 let error_label_mismatch (l, l') ext =
   error ext ("label " ^ l ^ " is different from " ^ l' ^ "\n"
@@ -30,5 +30,8 @@ let error_label_mismatch (l, l') ext =
 
 let error_label_missing_branch (l) ext =
   error ext ("label " ^ l ^ " does not appear among the branches")
+
+let error_use_locked v ext =
+  error ext ("use of unlocked variable " ^ v)
 
 (* structure TpError *)

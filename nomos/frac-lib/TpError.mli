@@ -19,3 +19,4 @@ val error_label_mismatch :
   string * string -> A.ext -> 'a
 val error_label_missing_branch :
   string -> A.ext -> 'a
+val error_use_locked : string -> A.ext -> 'a

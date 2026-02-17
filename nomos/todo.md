@@ -2,6 +2,8 @@
 
 - Anything marked with TODO in code
 - Better permission parsing
+- add id to context on spawn
+- check that you only use known ids/perms when spawning/tail-calling
 
 # Done
 - add cases to type ast for new types

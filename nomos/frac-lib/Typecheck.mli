@@ -14,7 +14,7 @@ val checkexp :
   bool ->
   (A.decl * 'a) list ->
   A.context ->
-  A.ext A.st_aug_expr -> A.chan * A.proto -> A.ext -> unit
+  A.ext A.st_aug_expr -> A.chan * A.proto -> A.ext -> A.cont -> unit
 (* val link_tps :
      (A.decl * 'a) list ->
      (A.chan, A.stype, 'b) Core.Map.t ->
