@@ -325,6 +325,10 @@ let rec check_declared_list env ext args = match args with
     check_declared_list env ext args'
   | [] -> ()
 
+let check_perm p ctx =
+  match p with
+  | A.Owned -> true
+  | A.Fractional p -> A.StringMap.for_all (fun v x -> List.mem v ctx.A.permnames) p
 
 let rec checkexp trace env ctx p zc ext cont = check_exp' trace env ctx p zc ext cont
 
@@ -388,7 +392,7 @@ and check_exp trace env ctx exp zc ext cont = match (exp.A.st_structure) with
           let delta' = List.map (fun (x,t) -> (x, A.stype_subst_perms ps ps' (A.stype_subst_ids ids ids' t))) delta' in
           let a' = A.proto_subst_perms ps ps' (A.proto_subst_ids ids ids' a') in
           let ctx' = match_ctx env delta' ctx xs (List.length delta') (List.length xs) (exp.A.st_data) in
-          let ctx' = { ctx' with linear = (x, (a', Owned, id))::ctx'.A.linear } in
+          let ctx' = { ctx' with A.idnames = id::ctx'.A.idnames ; A.linear = (x, (a', Owned, id))::ctx'.A.linear } in
           check_exp' trace env ctx' q zc ext cont
     end
   | A.ExpName(x,f,ids,ps,xs) ->
@@ -646,12 +650,19 @@ and check_exp trace env ctx exp zc ext cont = match (exp.A.st_structure) with
             error (exp.A.st_data) ("extra channels when continuing: " ^ PP.pp_channames (List.map fst delta'))
           else
             let (z,c) = zc in
-            if not (eqtp env c a_c) then
-              error (exp.A.st_data) ("type mismatch: type of " ^ z ^
-                                     ", expected: " ^ PP.pp_proto env a_c ^
-                                     ", found: " ^ PP.pp_proto env c)
-            else
-              ()
+            match c with
+            | A.TpName(v) -> check_exp' trace env ctx exp (z,A.expd_tp env v) ext cont
+            | A.Down(a) ->
+              if not (eqtp env a a_c) then
+                error (exp.A.st_data) ("type mismatch: type of " ^ z ^
+                                       ", expected: " ^ PP.pp_proto env a_c ^
+                                       ", found: " ^ PP.pp_proto env c)
+              else
+                ()
+            | _ ->
+              error (exp.A.st_data) ("invalid type of " ^ z ^
+                                     ", expected down arrow, found: " ^ PP.pp_proto env c)
+
     end
   | A.Mut(cont_p) ->
     begin
@@ -668,13 +679,147 @@ and check_exp trace env ctx exp zc ext cont = match (exp.A.st_structure) with
             error (exp.A.st_data) ("invalid type of " ^ z ^
                                  ", expected double down arrow, found: " ^ PP.pp_proto env c)
     end
-  | A.Start(x,cont_p) -> assert false
-  | A.Finish(x,cont_p) -> assert false
-  | A.Mutate(x,cont_p) -> assert false
-  | A.Split(x1,x2,x,cont_p) -> assert false
-  | A.Merge(x,x1,x2,cont_p) -> assert false
-  | A.Share(x,cont_p) -> assert false
-  | A.Own(x,cont_p) -> assert false
+  | A.Start(x,cont_p) ->
+    begin
+      if not (has_chan x ctx) then
+        E.error_unknown_var_ctx x (exp.A.st_data)
+      else (* the type a of x must be /\ *)
+        let (a,p,id) = find_tp x ctx (exp.A.st_data) in
+        match a with
+        | A.TpName(v) -> check_exp' trace env (update_tp env x ((A.expd_tp env v),p,id) ctx) exp zc ext cont
+        | A.Up(a) -> check_exp' trace env (update_tp env x (a,p,id) ctx) cont_p zc ext cont
+        | _ ->
+          error (exp.A.st_data) ("invalid type of " ^ x ^
+                                 ", expected up arrow, found: " ^ PP.pp_proto env a)
+    end
+  | A.Finish(x,cont_p) ->
+    begin
+      if not (has_chan x ctx) then
+        E.error_unknown_var_ctx x (exp.A.st_data)
+      else (* the type a of x must be \/ *)
+        let (a,p,id) = find_tp x ctx (exp.A.st_data) in
+        match a with
+        | A.TpName(v) -> check_exp' trace env (update_tp env x ((A.expd_tp env v),p,id) ctx) exp zc ext cont
+        | A.Down(a) -> check_exp' trace env (update_tp env x (a,p,id) ctx) cont_p zc ext cont
+        | _ ->
+          error (exp.A.st_data) ("invalid type of " ^ x ^
+                                 ", expected down arrow, found: " ^ PP.pp_proto env a)
+    end
+  | A.Mutate(x,cont_p) ->
+    begin
+      if not (has_chan x ctx) then
+        E.error_unknown_var_ctx x (exp.A.st_data)
+      else (* the type a of x must be \\// *)
+        let (a,p,id) = find_tp x ctx (exp.A.st_data) in
+        match p with
+        | A.Fractional _ -> error (exp.A.st_data) ("mutate un-owned channel " ^ x)
+        | A.Owned ->
+          match a with
+          | A.TpName(v) -> check_exp' trace env (update_tp env x ((A.expd_tp env v),p,id) ctx) exp zc ext cont
+          | A.DoubleDown(a) -> check_exp' trace env (update_tp env x (a,p,id) ctx) cont_p zc ext cont
+          | _ ->
+            error (exp.A.st_data) ("invalid type of " ^ x ^
+                                   ", expected double down arrow, found: " ^ PP.pp_proto env a)
+    end
+  | A.Split(x1,x2,x,cont_p) ->
+    begin
+      let (z,c) = zc in
+      if has_chan x1 ctx || x1 = z then
+        error (exp.A.st_data) ("variable " ^ x1 ^ " is not fresh")
+      else if has_chan x2 ctx || x2 = z then
+        error (exp.A.st_data) ("variable " ^ x2 ^ " is not fresh")
+      else if not (has_chan x ctx) then
+        E.error_unknown_var_ctx x (exp.A.st_data)
+      else (* the type a of x must be /\ *)
+        let (a,p,id) = find_tp x ctx (exp.A.st_data) in
+        match p with
+        | A.Owned -> error (exp.A.st_data) ("split owned channel " ^ x)
+        | A.Fractional _ ->
+          let p' = A.perm_mult p (A.perm_const 0.5) in
+          let ctx' = remove_chan x ctx in
+          let ctx' = add_chan env (x1, (a,p',id)) ctx' in
+          let ctx' = add_chan env (x2, (a,p',id)) ctx' in
+          match a with
+          | A.TpName(v) -> check_exp' trace env (update_tp env x ((A.expd_tp env v),p,id) ctx) exp zc ext cont
+          | A.Up(_) -> check_exp' trace env ctx' cont_p zc ext cont
+          | _ ->
+            error (exp.A.st_data) ("invalid type of " ^ x ^
+                                   ", expected up arrow, found: " ^ PP.pp_proto env a)
+    end
+  | A.Merge(x,x1,x2,cont_p) ->
+    begin
+      let (z,c) = zc in
+      if has_chan x ctx || x = z then
+        error (exp.A.st_data) ("variable " ^ x ^ " is not fresh")
+      else if not (has_chan x1 ctx) then
+        E.error_unknown_var_ctx x1 (exp.A.st_data)
+      else if not (has_chan x2 ctx) then
+        E.error_unknown_var_ctx x2 (exp.A.st_data)
+      else (* the type a of x1 and x2 must be /\ *)
+        let (a1,p1,id1) = find_tp x1 ctx (exp.A.st_data) in
+        let (a2,p2,id2) = find_tp x2 ctx (exp.A.st_data) in
+        if not (A.perm_eq p1 p2) then
+            error ext ("permission mismatch: permission " ^ PP.pp_perm p1 ^
+                    " of " ^ x1 ^ " does not match permission " ^ PP.pp_perm p2 ^ " of " ^ x2)
+        else if not (id1 = id2) then
+            error ext ("id mismatch: id " ^ id1 ^ " of " ^ x1 ^ " does not match id " ^ id2 ^ " of " ^ x2)
+        else if not (eqtp env a1 a2) then
+            error ext ("type mismatch: type of " ^ x1 ^ " : " ^ PP.pp_proto env a1 ^
+                    " does not match type of " ^ x2 ^ " : " ^ PP.pp_proto env a2)
+        else
+        match p1 with
+        | A.Owned -> error (exp.A.st_data) ("merge owned channels " ^ x1 ^ ", " ^ x2 ^ " (something is seriously wrong)")
+        | A.Fractional _ ->
+          let p' = A.perm_add p1 p2 in
+          let ctx' = remove_chan x1 ctx in
+          let ctx' = remove_chan x2 ctx' in
+          let ctx' = add_chan env (x, (a1,p',id1)) ctx' in
+          match a1 with
+          | A.TpName(v) -> check_exp' trace env (update_tp env x1 ((A.expd_tp env v),p1,id1) ctx) exp zc ext cont
+          | A.Up(_) -> check_exp' trace env ctx' cont_p zc ext cont
+          | _ ->
+            error (exp.A.st_data) ("invalid type of " ^ x ^
+                                   ", expected up arrow, found: " ^ PP.pp_proto env a1)
+    end
+  | A.Share(x,cont_p) ->
+    begin
+      if not (has_chan x ctx) then
+        E.error_unknown_var_ctx x (exp.A.st_data)
+      else (* the type a of x must be /\ *)
+        let (a,p,id) = find_tp x ctx (exp.A.st_data) in
+        match p with
+        | A.Fractional _ -> error (exp.A.st_data) ("share un-owned channel " ^ x)
+        | A.Owned ->
+          let ctx' = { ctx with A.owned = id::ctx.A.owned } in
+          match a with
+          | A.TpName(v) -> check_exp' trace env (update_tp env x ((A.expd_tp env v),p,id) ctx) exp zc ext cont
+          | A.Up(_) -> check_exp' trace env (update_tp env x (a,A.perm_const 1.,id) ctx') cont_p zc ext cont
+          | _ ->
+            error (exp.A.st_data) ("invalid type of " ^ x ^
+                                   ", expected up arrow, found: " ^ PP.pp_proto env a)
+    end
+  | A.Own(x,cont_p) ->
+    begin
+      if not (has_chan x ctx) then
+        E.error_unknown_var_ctx x (exp.A.st_data)
+      else (* the type a of x must be /\ *)
+        let (a,p,id) = find_tp x ctx (exp.A.st_data) in
+        match p with
+        | A.Owned -> error (exp.A.st_data) ("own already owned channel " ^ x)
+        | A.Fractional _ ->
+          if not (A.perm_eq p (A.perm_const 1.)) then
+            error (exp.A.st_data) ("own channel " ^ x ^ " at non-1 permission " ^ PP.pp_perm p)
+          else if not (List.mem id ctx.A.owned) then
+            error (exp.A.st_data) ("own non-ownable channel " ^ x)
+          else
+          let ctx' = { ctx with A.owned = List.filter (fun id' -> id' <> id) ctx.A.owned } in
+          match a with
+          | A.TpName(v) -> check_exp' trace env (update_tp env x ((A.expd_tp env v),p,id) ctx) exp zc ext cont
+          | A.Up(_) -> check_exp' trace env (update_tp env x (a,A.Owned,id) ctx') cont_p zc ext cont
+          | _ ->
+            error (exp.A.st_data) ("invalid type of " ^ x ^
+                                   ", expected up arrow, found: " ^ PP.pp_proto env a)
+    end
   | A.SendId(x,b,cont_p) ->
     begin
       if not (List.mem b ctx.A.idnames) then
@@ -728,8 +873,59 @@ and check_exp trace env ctx exp zc ext cont = match (exp.A.st_structure) with
           error (exp.A.st_data) ("invalid type of " ^ x ^
                                  ", expected exists(id), found: " ^ PP.pp_proto env a)
     end
-  | A.SendPerm(x,p,cont_p) -> assert false
-  | A.RecvPerm(x,p,cont_p) -> assert false
+  | A.SendPerm(x,p,cont_p) ->
+    begin
+      if not (check_perm p ctx) then
+        error (exp.A.st_data) ("invalid permission: " ^ PP.pp_perm p)
+      else
+      if not (has_chan x ctx) then
+        let (z,c) = zc in
+        if x <> z then
+          E.error_unknown_var x (exp.A.st_data)
+        else (* the type c of z must be exists(perm) *)
+          match c with
+          | A.TpName(v) -> check_exp' trace env ctx exp (z,A.expd_tp env v) ext cont
+          | A.ExistsPerm(k,a) -> check_exp' trace env ctx cont_p (z,A.proto_subst_perm p k a) ext cont
+          | _ ->
+            error (exp.A.st_data) ("invalid type of " ^ x ^
+                                   ", expected exists(perm), found: " ^ PP.pp_proto env c)
+      else (* the type a of x must be forall(perm) *)
+        let (a,p,id) = find_tp x ctx (exp.A.st_data) in
+        match a with
+        | A.TpName(v) -> check_exp' trace env (update_tp env x ((A.expd_tp env v),p,id) ctx) exp zc ext cont
+        | A.ForallPerm(k,a) -> check_exp' trace env (update_tp env x (A.stype_subst_perm p k (a,p,id)) ctx) cont_p zc ext cont
+        | _ ->
+          error (exp.A.st_data) ("invalid type of " ^ x ^
+                                 ", expected forall(perm), found: " ^ PP.pp_proto env a)
+
+    end
+  | A.RecvPerm(x,p,cont_p) ->
+    begin
+      if List.mem p ctx.A.idnames then
+        error (exp.A.st_data) ("permission name " ^ p ^ " is not fresh")
+      else
+      if not (has_chan x ctx) then
+        let (z,c) = zc in
+        if x <> z then
+          E.error_unknown_var x (exp.A.st_data)
+        else (* the type c of z must be forall(perm) *)
+          let ctx' = { ctx with A.permnames = p::ctx.A.permnames } in
+          match c with
+          | A.TpName(v) -> check_exp' trace env ctx exp (z,A.expd_tp env v) ext cont
+          | A.ForallPerm(k,a) -> check_exp' trace env ctx' cont_p (z,A.proto_subst_perm (A.perm_var p) k a) ext cont
+          | _ ->
+            error (exp.A.st_data) ("invalid type of " ^ x ^
+                                   ", expected forall(perm), found: " ^ PP.pp_proto env c)
+      else (* the type a of x must be exists(perm) *)
+        let (a,p',id) = find_tp x ctx (exp.A.st_data) in
+        let ctx' = { ctx with A.permnames = p::ctx.A.permnames } in
+        match a with
+        | A.TpName(v) -> check_exp' trace env (update_tp env x ((A.expd_tp env v),p',id) ctx) exp zc ext cont
+        | A.ExistsPerm(k,a) -> check_exp' trace env (update_tp env x (A.stype_subst_perm (A.perm_var p) k (a,p',id)) ctx') cont_p zc ext cont
+        | _ ->
+          error (exp.A.st_data) ("invalid type of " ^ x ^
+                                 ", expected exists(perm), found: " ^ PP.pp_proto env a)
+    end
   | A.Abort -> ()
   | A.Print(l,args,p) ->
     begin

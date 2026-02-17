@@ -10,6 +10,8 @@ module StringMap : Map.S with type key = string
 type perm =
   | Owned
   | Fractional of float StringMap.t
+val perm_const : float -> perm
+val perm_var : permname -> perm
 val perm_is_simple : perm -> bool
 val perm_eq : perm -> perm -> bool
 exception NonlinearPerm

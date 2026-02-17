@@ -25,6 +25,9 @@ type perm =
 let perm_const x =
   Fractional (StringMap.singleton "" x)
 
+let perm_var v =
+  Fractional (StringMap.singleton v 1.)
+
 let perm_is_simple p =
   match p with
   | Owned -> true

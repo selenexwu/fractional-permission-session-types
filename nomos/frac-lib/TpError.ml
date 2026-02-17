@@ -32,6 +32,6 @@ let error_label_missing_branch (l) ext =
   error ext ("label " ^ l ^ " does not appear among the branches")
 
 let error_use_locked v ext =
-  error ext ("use of unlocked variable " ^ v)
+  error ext ("use of locked variable " ^ v)
 
 (* structure TpError *)

@@ -47,8 +47,8 @@ args_opt:
 
 perm:
     | TIMES;     { Ast.Owned }
-    | p = FLOAT; { Ast.Fractional(Ast.StringMap.singleton "" p) }
-    | p = ID;    { Ast.Fractional(Ast.StringMap.singleton p 1.) }
+    | p = FLOAT; { Ast.perm_const p }
+    | p = ID;    { Ast.perm_var p }
 
 stype:
     | LANGLE; t = proto; COMMA; p = perm; COMMA; a = ID; RANGLE { (t,p,a) }

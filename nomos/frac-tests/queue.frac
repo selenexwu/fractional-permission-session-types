@@ -39,27 +39,34 @@ proc empty : . |- (q : queue) =
   }
 
 proc elem[xi,ti] : (x : <A,*,xi>), (t : <queue,*,ti>) |- (q : queue) =
+  share t;
   immut x t {
     case q (
       ins => mut {
+        own t;
         {yi} <- recv q;
         y <- recv q;
+        start t;
         t.ins;
+        mutate t;
         send t {yi};
         send t y;
         q <- elem[xi,ti] x t
       }
     | del => mut {
+        own t;
         q.some;
         send q {xi};
         send q x;
         q <-> t
       }
     | len =>
+        start t;
         t.len;
         {ni} <- recv t;
         n <- recv t;
-        {n1i}, n1 <- succ n;
+        finish t;
+        {n1i}, n1 <- succ[ni] n;
         send q {n1i};
         send q n1;
         continue x t
@@ -73,4 +80,13 @@ proc test : . |- (x : test) =
   send x {a};
   {{p}} <- recv x;
   send x {{p}};
-  close x
+
+  {qi}, q <- empty;
+  {qia}, qa <- empty;
+  share q;
+  share qa;
+  q1, q2 <- split q;
+  qa1, qa2 <- split qa;
+  q3 <- merge q1, q2;
+  own q3;
+  abort
