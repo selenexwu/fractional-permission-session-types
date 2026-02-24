@@ -2,10 +2,10 @@
 
 - Anything marked with TODO in code
 - Better permission parsing
-- check that you only use known ids/perms when spawning/tail-calling
-- check for id freshness on spawning
 - use rationals instead of floats for permissions
 - probably a ton of uniqueness checks
+- split /\\R into the two rules (doesn't change much so not super necessary)
+- forbid * from being the value we send over a forall/exists for permissions? otherwise it's invalid to split a channel at a variable permission
 
 # Done
 - add cases to type ast for new types
@@ -16,3 +16,5 @@
 - change channel type in statements to just be the name, no mode or dollar sign
 - remove unused cases from parser
 - remove unused cases from ast
+- check for id freshness on spawning
+- check that you only use known ids/perms when spawning/tail-calling

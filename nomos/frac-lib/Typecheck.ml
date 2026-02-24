@@ -330,6 +330,9 @@ let check_perm p ctx =
   | A.Owned -> true
   | A.Fractional p -> A.StringMap.for_all (fun v x -> List.mem v ctx.A.permnames) p
 
+let check_id id ctx =
+  List.mem id ctx.A.idnames
+
 let rec checkexp trace env ctx p zc ext cont = check_exp' trace env ctx p zc ext cont
 
 and check_exp' trace env ctx p zc (ext:A.ext) cont =
@@ -388,6 +391,8 @@ and check_exp trace env ctx exp zc ext cont = match (exp.A.st_structure) with
         else if List.length ps <> List.length ps' then
           error (exp.A.st_data) ("mismatched number of perms: expected " ^ PP.pp_channames ps' ^ ", got " ^ PP.pp_perms ps)
         else
+          let () = List.iter(fun p -> if not (check_perm p ctx) then error (exp.A.st_data) ("invalid permission " ^ PP.pp_perm p) else ()) ps in
+          let () = List.iter(fun id -> if not (check_id id ctx) then error (exp.A.st_data) ("unknown id " ^ id) else ()) ids in
           (* update signature with provided substitution *)
           let delta' = List.map (fun (x,t) -> (x, A.stype_subst_perms ps ps' (A.stype_subst_ids ids ids' t))) delta' in
           let a' = A.proto_subst_perms ps ps' (A.proto_subst_ids ids ids' a') in
@@ -405,6 +410,8 @@ and check_exp trace env ctx exp zc ext cont = match (exp.A.st_structure) with
         else if List.length ps <> List.length ps' then
           error (exp.A.st_data) ("mismatched number of perms: expected " ^ PP.pp_channames ps' ^ ", got " ^ PP.pp_perms ps)
         else
+          let () = List.iter(fun p -> if not (check_perm p ctx) then error (exp.A.st_data) ("invalid permission " ^ PP.pp_perm p) else ()) ps in
+          let () = List.iter(fun id -> if not (check_id id ctx) then error (exp.A.st_data) ("unknown id " ^ id) else ()) ids in
           (* update signature with provided substitution *)
           let delta' = List.map (fun (x,t) -> (x, A.stype_subst_perms ps ps' (A.stype_subst_ids ids ids' t))) delta' in
           let a' = A.proto_subst_perms ps ps' (A.proto_subst_ids ids ids' a') in
