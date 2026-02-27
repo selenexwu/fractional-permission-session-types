@@ -14,7 +14,6 @@
  * environment in addition to the list of declarations to be elaborated.
  *)
 
-module R = Arith
 module A = Ast
 module PP = Pprint
 module TC = Typecheck

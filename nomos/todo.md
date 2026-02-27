@@ -1,11 +1,9 @@
 # TODO
 
+- fix up rational handling
 - Anything marked with TODO in code
-- Better permission parsing
-- use rationals instead of floats for permissions
 - probably a ton of uniqueness checks
 - split /\\R into the two rules (doesn't change much so not super necessary)
-- forbid * from being the value we send over a forall/exists for permissions? otherwise it's invalid to split a channel at a variable permission
 
 # Done
 - add cases to type ast for new types
@@ -18,3 +16,7 @@
 - remove unused cases from ast
 - check for id freshness on spawning
 - check that you only use known ids/perms when spawning/tail-calling
+- forbid * from being the value we send over a forall/exists for permissions? otherwise it's invalid to split a channel at a variable permission
+- Better permission equality
+- Better permission parsing
+- use rationals instead of floats for permissions

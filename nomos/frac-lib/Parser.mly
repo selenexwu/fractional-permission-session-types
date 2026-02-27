@@ -45,10 +45,15 @@ args_opt:
     | l = separated_list(COMMA, argument)   { l }
     ;
 
+perm_term:
+    | coef = FLOAT; TIMES; var = ID; { (var, Q.of_float coef) }
+    | var = ID; TIMES; coef = FLOAT; { (var, Q.of_float coef) }
+    | var = ID;                      { (var, Q.one) }
+    | const = FLOAT;                 { ("", Q.of_float const) }
+
 perm:
-    | TIMES;     { Ast.Owned }
-    | p = FLOAT; { Ast.perm_const p }
-    | p = ID;    { Ast.perm_var p }
+    | TIMES;                                { Ast.Owned }
+    | ps = separated_nonempty_list(PLUS, perm_term); { Ast.Fractional (Ast.StringMap.of_seq (List.to_seq ps)) }
 
 stype:
     | LANGLE; t = proto; COMMA; p = perm; COMMA; a = ID; RANGLE { (t,p,a) }

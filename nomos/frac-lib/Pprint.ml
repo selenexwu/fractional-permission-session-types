@@ -1,35 +1,4 @@
-module R = Arith
 module A = Ast
-
-(**************************)
-(* Arithmetic expressions *)
-(**************************)
-              
-(* Uses precedence
- * prec('+','-') = 1; prec('*') = 2
- *)
-let parens prec_left prec s =
-    if prec_left >= prec then "(" ^ s ^ ")" else s;;
-
-(* pp_arith_prec prec_left e = "e"
- * using the precedence prec_left of the operator
- * to the left to decide on parentheses
- * All arithmetic operators are left associative
- *)
-let rec pp_arith_prec prec_left e = match e with
-    R.Int(n) ->
-      if n >= 0 then string_of_int n
-      else pp_arith_prec prec_left (R.Sub(R.Int(0),R.Int(0-n))) (* might overflow *)
-  | R.Add(s,t) ->
-      parens prec_left 1 (pp_arith_prec 0 s ^ "+" ^ pp_arith_prec 1 t)
-  | R.Sub(s,t) ->
-      parens prec_left 1 (pp_arith_prec 0 s ^ "-" ^ pp_arith_prec 1 t)
-  | R.Mult(s,t) ->
-    parens prec_left 2 (pp_arith_prec 1 s ^ "*" ^ pp_arith_prec 2 t)
-  | R.Var(v) -> v;;
-
-(* pp_arith e = "e" *)
-let pp_arith e = pp_arith_prec 0 e;;
 
 (*******************************)
 (* Types, and their components *)
@@ -51,7 +20,7 @@ let len s = String.length s;;
 
 let pp_perm p = match p with
   | A.Owned -> "*"
-  | A.Fractional(pm) -> String.concat "+" @@ List.map (fun (v, x) -> string_of_float x ^ v) @@ A.StringMap.bindings pm
+  | A.Fractional(pm) -> String.concat "+" @@ List.map (fun (v, x) -> Q.to_string x ^ if v = "" then "" else "*" ^ v) @@ A.StringMap.bindings pm
 
 let pp_perms ps = String.concat " " (List.map pp_perm ps)
 
@@ -65,8 +34,12 @@ and pp_proto_simple a = match a with
   | A.Lolli(a,b) -> pp_tp_simple a ^ " -o " ^ pp_proto_simple b
   | A.Up(a) -> "/\\ " ^ pp_proto_simple a
   | A.Down(a) -> "\\/ " ^ pp_proto_simple a
+  | A.DoubleDown(a) -> "\\\\//" ^ pp_proto_simple a
+  | A.ExistsId (a, t) -> "?" ^ a ^ "." ^ pp_proto_simple t
+  | A.ForallId (a, t) -> "!" ^ a ^ "." ^ pp_proto_simple t
+  | A.ExistsPerm (a, t) -> "??" ^ a ^ "." ^ pp_proto_simple t
+  | A.ForallPerm (a, t) -> "!!" ^ a ^ "." ^ pp_proto_simple t
   | A.TpName(a) -> a
-  | _ -> "THING"
 
 and pp_choice_simple cs = match cs with
     [] -> ""
@@ -87,12 +60,10 @@ let rec pp_proto i a = match a with
     A.Plus(choice) -> "+{ " ^ pp_choice (i+3) choice ^ " }"
   | A.With(choice) -> "&{ " ^ pp_choice (i+3) choice ^ " }"
   | A.Tensor(a,b) ->
-      (* TODO: don't use simple here *)
       let astr = pp_tp_simple a in
       let inc = len astr in
       astr ^ " * " ^ pp_proto (i+inc) b
   | A.Lolli(a,b) ->
-      (* TODO: don't use simple here *)
       let astr = pp_tp_simple a in
       let inc = len astr in
       astr ^ " -o " ^ pp_proto (i+inc) b

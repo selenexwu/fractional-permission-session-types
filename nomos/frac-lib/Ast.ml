@@ -1,5 +1,4 @@
 open Sexplib.Std
-module R = Arith
 
 type ext = Mark.ext option      (* optional extent (source region info) *)
 
@@ -20,13 +19,13 @@ module StringMap = Map.Make(String)
 (* Permissions *)
 type perm =
   | Owned
-  | Fractional of float StringMap.t
+  | Fractional of Q.t StringMap.t
 
 let perm_const x =
   Fractional (StringMap.singleton "" x)
 
 let perm_var v =
-  Fractional (StringMap.singleton v 1.)
+  Fractional (StringMap.singleton v Q.one)
 
 let perm_is_simple p =
   match p with
@@ -48,17 +47,17 @@ let perm_mult p1 p2 =
   | Fractional p1, Fractional p2 ->
     if perm_is_simple (Fractional p1) then
       let p1 = StringMap.find "" p1 in
-      Fractional (StringMap.map (fun x -> x *. p1) p2)
+      Fractional (StringMap.map (fun x -> Q.( * ) x p1) p2)
     else if perm_is_simple (Fractional p2) then
       let p2 = StringMap.find "" p2 in
-      Fractional (StringMap.map (fun x -> x *. p2) p1)
+      Fractional (StringMap.map (fun x -> Q.( * ) x p2) p1)
     else raise NonlinearPerm
 
 let perm_add p1 p2 =
   match p1, p2 with
   | Owned, _ | _, Owned -> Owned
   | Fractional p1, Fractional p2 ->
-    Fractional (StringMap.union (fun _v x1 x2 -> Some (x1 +. x2)) p1 p2)
+    Fractional (StringMap.union (fun _v x1 x2 -> Some (Q.(+) x1 x2)) p1 p2)
 
 
 type chan = string       (* channel name *)

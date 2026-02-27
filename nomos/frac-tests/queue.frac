@@ -73,7 +73,7 @@ proc elem[xi,ti] : (x : <A,*,xi>), (t : <queue,*,ti>) |- (q : queue) =
     )
   }
 
-type test = !a. ?b. !!c. ??d. 1
+type test = !a. ?b. !!c. ??d. <1, 0.4+0.2*b+d*0.4+a, a> * 1
 
 proc test : . |- (x : test) =
   {a} <- recv x;

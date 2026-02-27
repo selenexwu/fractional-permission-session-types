@@ -1,6 +1,4 @@
-module R = Arith
 module A = Ast
-val pp_arith : R.arith -> string
 val pp_tp_simple : A.stype -> string
 val pp_proto_simple : A.proto -> string
 val pp_chan : string -> string

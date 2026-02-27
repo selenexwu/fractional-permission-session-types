@@ -1,4 +1,3 @@
-module R = Arith
 type ext = Mark.ext option
 val make_ext : Lexing.position -> Lexing.position -> ext
 type label = string
@@ -9,8 +8,8 @@ type idname = string
 module StringMap : Map.S with type key = string
 type perm =
   | Owned
-  | Fractional of float StringMap.t
-val perm_const : float -> perm
+  | Fractional of Q.t StringMap.t
+val perm_const : Q.t -> perm
 val perm_var : permname -> perm
 val perm_is_simple : perm -> bool
 val perm_eq : perm -> perm -> bool

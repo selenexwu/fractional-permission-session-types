@@ -6,7 +6,6 @@ module EL = Elab
    module I = Infer *)
 module Map = C.Map
 (* module PP = Pprint *)
-module R = Arith
 module Sexp = C.Sexp
 (* module TC = Typecheck *)
 module StdList = Stdlib.List
