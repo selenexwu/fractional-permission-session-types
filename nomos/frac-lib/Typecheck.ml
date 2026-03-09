@@ -791,39 +791,45 @@ and check_exp trace env ctx exp zc ext cont = match (exp.A.st_structure) with
       if not (has_chan x ctx) then
         E.error_unknown_var_ctx x (exp.A.st_data)
       else (* the type a of x must be /\ *)
-        let (a,p,id) = find_tp x ctx (exp.A.st_data) in
-        match p with
-        | A.Fractional _ -> error (exp.A.st_data) ("share un-owned channel " ^ x)
-        | A.Owned ->
-          let ctx' = { ctx with A.owned = id::ctx.A.owned } in
-          match a with
-          | A.TpName(v) -> check_exp' trace env (update_tp env x ((A.expd_tp env v),p,id) ctx) exp zc ext cont
-          | A.Up(_) -> check_exp' trace env (update_tp env x (a,A.perm_const Q.one,id) ctx') cont_p zc ext cont
-          | _ ->
-            error (exp.A.st_data) ("invalid type of " ^ x ^
-                                   ", expected up arrow, found: " ^ PP.pp_proto env a)
+        match cont with
+        | Some _ -> error (exp.A.st_data) ("share inside immutable operation")
+        | None ->
+           let (a,p,id) = find_tp x ctx (exp.A.st_data) in
+           match p with
+           | A.Fractional _ -> error (exp.A.st_data) ("share un-owned channel " ^ x)
+           | A.Owned ->
+              let ctx' = { ctx with A.owned = id::ctx.A.owned } in
+              match a with
+              | A.TpName(v) -> check_exp' trace env (update_tp env x ((A.expd_tp env v),p,id) ctx) exp zc ext cont
+              | A.Up(_) -> check_exp' trace env (update_tp env x (a,A.perm_const Q.one,id) ctx') cont_p zc ext cont
+              | _ ->
+                 error (exp.A.st_data) ("invalid type of " ^ x ^
+                                          ", expected up arrow, found: " ^ PP.pp_proto env a)
     end
   | A.Own(x,cont_p) ->
     begin
       if not (has_chan x ctx) then
         E.error_unknown_var_ctx x (exp.A.st_data)
       else (* the type a of x must be /\ *)
-        let (a,p,id) = find_tp x ctx (exp.A.st_data) in
-        match p with
-        | A.Owned -> error (exp.A.st_data) ("own already owned channel " ^ x)
-        | A.Fractional _ ->
-          if not (A.perm_eq p (A.perm_const Q.one)) then
-            error (exp.A.st_data) ("own channel " ^ x ^ " at non-1 permission " ^ PP.pp_perm p)
-          else if not (List.mem id ctx.A.owned) then
-            error (exp.A.st_data) ("own non-ownable channel " ^ x)
-          else
-          let ctx' = { ctx with A.owned = List.filter (fun id' -> id' <> id) ctx.A.owned } in
-          match a with
-          | A.TpName(v) -> check_exp' trace env (update_tp env x ((A.expd_tp env v),p,id) ctx) exp zc ext cont
-          | A.Up(_) -> check_exp' trace env (update_tp env x (a,A.Owned,id) ctx') cont_p zc ext cont
-          | _ ->
-            error (exp.A.st_data) ("invalid type of " ^ x ^
-                                   ", expected up arrow, found: " ^ PP.pp_proto env a)
+        match cont with
+        | Some _ -> error (exp.A.st_data) ("own inside immutable operation")
+        | None ->
+           let (a,p,id) = find_tp x ctx (exp.A.st_data) in
+           match p with
+           | A.Owned -> error (exp.A.st_data) ("own already owned channel " ^ x)
+           | A.Fractional _ ->
+              if not (A.perm_eq p (A.perm_const Q.one)) then
+                error (exp.A.st_data) ("own channel " ^ x ^ " at non-1 permission " ^ PP.pp_perm p)
+              else if not (List.mem id ctx.A.owned) then
+                error (exp.A.st_data) ("own non-ownable channel " ^ x)
+              else
+                let ctx' = { ctx with A.owned = List.filter (fun id' -> id' <> id) ctx.A.owned } in
+                match a with
+                | A.TpName(v) -> check_exp' trace env (update_tp env x ((A.expd_tp env v),p,id) ctx) exp zc ext cont
+                | A.Up(_) -> check_exp' trace env (update_tp env x (a,A.Owned,id) ctx') cont_p zc ext cont
+                | _ ->
+                   error (exp.A.st_data) ("invalid type of " ^ x ^
+                                            ", expected up arrow, found: " ^ PP.pp_proto env a)
     end
   | A.SendId(x,b,cont_p) ->
     begin
