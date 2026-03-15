@@ -25,7 +25,7 @@ and proto =
   | Lolli of stype * proto
   | One
   | TpName of tpname
-  | Up of proto
+  | Up of permname * proto
   | Down of proto
   | DoubleDown of proto
   | ExistsId of idname * proto
@@ -44,10 +44,10 @@ and 'a st_expr =
   | Recv of chan * chan * 'a st_aug_expr
   | Close of chan
   | Wait of chan * 'a st_aug_expr
-  | Immut of chan list * 'a st_aug_expr
+  | Immut of chan list * permname * 'a st_aug_expr
   | Continue of chan list
   | Mut of 'a st_aug_expr
-  | Start of chan * 'a st_aug_expr
+  | Start of chan * perm * 'a st_aug_expr
   | Finish of chan * 'a st_aug_expr
   | Mutate of chan * 'a st_aug_expr
   | Split of chan * chan * chan * 'a st_aug_expr
@@ -87,8 +87,8 @@ type context =
     linear: chan_tp list;
   }
 
-type cont = (chan_tp list * proto * idname list) option
-             
+type cont = (chan_tp list * proto * idname list * chan list * permname) option
+
 type decl =
   | TpDef of tpname * proto
   | ExpDecDef of expname *

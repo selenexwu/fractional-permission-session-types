@@ -107,8 +107,8 @@ and eq_tp env seen tp tp' = match tp, tp' with
       a = a' && p = p' && eq_tp' env seen s s' && eq_tp' env seen t t'
   | A.One, A.One -> true
 
-  | A.Up(a), A.Up(a') ->
-      eq_tp' env seen a a'
+  | A.Up(k,a), A.Up(k',a') ->
+      k = k' && eq_tp' env seen a a'
   | A.Down(a), A.Down(a') ->
       eq_tp' env seen a a'
   | A.DoubleDown(a), A.DoubleDown(a') ->
@@ -308,7 +308,7 @@ let rec check_declared env ext a = match a with
     if is_tpdef env v
     then ()
     else error ext ("type name " ^ v ^ " undeclared")
-  | A.Up(a') | A.Down(a') | A.DoubleDown(a') | A.ExistsId(_, a')
+  | A.Up(_, a') | A.Down(a') | A.DoubleDown(a') | A.ExistsId(_, a')
   | A.ForallId(_, a') | A.ExistsPerm(_, a') | A.ForallPerm(_, a') -> check_declared env ext a'
 
 and check_declared_choices env ext cs = match cs with
@@ -344,7 +344,7 @@ end
 
 
 (* judgmental constructs: id, cut, spawn, call *)
-and check_exp trace env ctx exp zc ext cont = match (exp.A.st_structure) with
+and check_exp trace env ctx exp zc ext (cont : A.cont) = match (exp.A.st_structure) with
     A.Fwd(x,y) ->
     begin
       let {A.idnames = idnames ; A.permnames = permnames ; A.owned = owned ; A.locked = ldelta ; A.linear = delta} = ctx in
@@ -534,7 +534,7 @@ and check_exp trace env ctx exp zc ext cont = match (exp.A.st_structure) with
                 error (exp.A.st_data) ("type mismatch: type of " ^ w ^
                                           ", expected: " ^ PP.pp_proto env a ^
                                           ", found: " ^ PP.pp_proto env a')
-              else if not (A.perm_eq p' (A.perm_mult p q)) then
+              else if not (A.perm_eq p' p) then
                 error (exp.A.st_data) ("permission mismatch: permission of " ^ w ^
                                        ", expected: " ^ PP.pp_perm p ^
                                        ", found: " ^ PP.pp_perm p')
@@ -569,7 +569,7 @@ and check_exp trace env ctx exp zc ext cont = match (exp.A.st_structure) with
         match d with
           A.TpName(v) -> check_exp' trace env (update_tp env x ((A.expd_tp env v),q,idx) ctx) exp zc ext cont
         | A.Tensor((a,p,id),b) ->
-          check_exp' trace env (add_chan env (y,(a,A.perm_mult p q,id)) (update_tp env x (b,q,idx) ctx)) cont_p zc ext cont
+          check_exp' trace env (add_chan env (y,(a,p,id)) (update_tp env x (b,q,idx) ctx)) cont_p zc ext cont
         | _ ->
           error (exp.A.st_data) ("invalid type of " ^ x ^
                                  ", expected tensor, found: " ^ PP.pp_proto env d)
@@ -609,7 +609,7 @@ and check_exp trace env ctx exp zc ext cont = match (exp.A.st_structure) with
                                     " found: " ^ PP.pp_proto env a)
         else check_exp' trace env (remove_chan x ctx) cont_p zc ext cont
     end
-  | A.Immut(ys,cont_p) ->
+  | A.Immut(ys,p',cont_p) ->
     begin
       let {A.idnames = idnames ; A.permnames = permnames ; A.owned = owned ; A.locked = ldelta ; A.linear = delta} = ctx in
       match cont with
@@ -617,25 +617,27 @@ and check_exp trace env ctx exp zc ext cont = match (exp.A.st_structure) with
       | None ->
         if List.length ldelta > 0 then
           error (exp.A.st_data) ("locked context " ^ PP.pp_chantp_list ldelta ^ " not empty")
-        else if (List.sort String.compare (List.map fst delta)) <> (List.sort String.compare ys) then
-          error (exp.A.st_data) ("must name all channels (" ^ PP.pp_channames (List.map fst delta) ^ ") when entering immut block")
         else
           let delta', ldelta = List.partition (fun (x,(a,p,id)) ->
               match a with
               | A.Up _ -> p <> A.Owned && List.mem id owned
               | _ -> false) delta
           in
-          let ctx' = { A.idnames = idnames ; A.permnames = permnames ; A.owned = [] ; A.locked = ldelta ; A.linear = delta' } in
-          let (z,c) = zc in
-          (* reorder the continuation delta to match the order of ys *)
-          let delta_c = List.map (fun y -> (y,find_tp y ctx ext)) ys in
-          let cont' = Some (delta_c, c, owned) in
-          match c with
-          | A.TpName(v) -> check_exp' trace env ctx exp (z,A.expd_tp env v) ext cont
-          | A.Up(a) -> check_exp' trace env ctx' cont_p (z,a) ext cont'
-          | _ ->
-            error (exp.A.st_data) ("invalid type of " ^ z ^
-                                 ", expected up arrow, found: " ^ PP.pp_proto env c)
+          if (List.sort String.compare (List.map fst delta')) <> (List.sort String.compare ys) then
+            error (exp.A.st_data) ("must name all unlocked channels (" ^ PP.pp_channames (List.map fst delta') ^ ") when entering immut block")
+          else
+            let delta' = List.map (fun (x,(a,p,id)) -> (x,(a,A.perm_mult p (A.perm_var p'),id))) delta' in
+            let ctx' = { A.idnames = idnames ; A.permnames = p' :: permnames ; A.owned = [] ; A.locked = ldelta ; A.linear = delta' } in
+            let (z,c) = zc in
+            (* reorder the continuation delta to match the order of ys *)
+            let delta_c = List.map (fun y -> (y,find_tp y ctx' ext)) ys in
+            let cont' = Some (delta_c, c, owned, ys, p') in
+            match c with
+            | A.TpName(v) -> check_exp' trace env ctx exp (z,A.expd_tp env v) ext cont
+            | A.Up(k, a) -> check_exp' trace env ctx' cont_p (z,A.proto_subst_perm (A.perm_var p') k a) ext cont'
+            | _ ->
+              error (exp.A.st_data) ("invalid type of " ^ z ^
+                                     ", expected up arrow, found: " ^ PP.pp_proto env c)
 
     end
   | A.Continue(ys) ->
@@ -643,14 +645,14 @@ and check_exp trace env ctx exp zc ext cont = match (exp.A.st_structure) with
       let {A.idnames = idnames ; A.permnames = permnames ; A.owned = owned ; A.locked = ldelta ; A.linear = delta} = ctx in
       match cont with
       | None -> error (exp.A.st_data) ("continue outside of immutable operation")
-      | Some (delta_c, a_c, owned_c) ->
+      | Some (delta_c, a_c, owned_c, ysc, pc) ->
         if List.length owned > 0 then
           error (exp.A.st_data) ("continue with owned ids " ^ PP.pp_channames owned)
         else
-          let ctx' = { ctx with A.locked = [] ; A.linear = ldelta @ delta } in
           (* TODO: this does the right thing but gives kinda weird error messages *)
-          let ctx' = match_ctx env delta_c ctx' ys (List.length delta_c) (List.length delta) (exp.A.st_data) in
+          let ctx' = match_ctx env delta_c ctx ys (List.length delta_c) (List.length ys) (exp.A.st_data) in
           let delta' = ctx'.A.linear in
+          let ctx' = { ctx with A.locked = [] ; A.linear = ldelta @ delta' } in
           if List.length delta' > 0 then
             error (exp.A.st_data) ("extra channels when continuing: " ^ PP.pp_channames (List.map fst delta'))
           else
@@ -674,28 +676,32 @@ and check_exp trace env ctx exp zc ext cont = match (exp.A.st_structure) with
       let {A.idnames = idnames ; A.permnames = permnames ; A.owned = owned ; A.locked = ldelta ; A.linear = delta} = ctx in
       match cont with
       | None -> error (exp.A.st_data) ("mut block outside of immutable operation")
-      | Some (delta_c, a_c, owned_c) ->
-        let ctx' = { A.idnames = idnames ; A.permnames = permnames ; A.owned = owned @ owned_c ; A.locked = [] ; A.linear = delta @ ldelta } in
+      | Some (delta_c, a_c, owned_c, ysc, pc) ->
+        let delta' = List.map (fun (x, t) -> (x, A.stype_subst_perm (A.perm_const Q.one) pc t)) delta in
+        let ctx' = { A.idnames = idnames ; A.permnames = List.filter (fun x -> x <> pc) permnames ; A.owned = owned @ owned_c ; A.locked = [] ; A.linear = delta' @ ldelta } in
         let (z,c) = zc in
           match c with
           | A.TpName(v) -> check_exp' trace env ctx exp (z,A.expd_tp env v) ext cont
-          | A.DoubleDown(a) -> check_exp' trace env ctx' cont_p (z,a) ext None
+          | A.DoubleDown(a) -> check_exp' trace env ctx' cont_p (z, A.proto_subst_perm (A.perm_const Q.one) pc a) ext None
           | _ ->
             error (exp.A.st_data) ("invalid type of " ^ z ^
                                  ", expected double down arrow, found: " ^ PP.pp_proto env c)
     end
-  | A.Start(x,cont_p) ->
+  | A.Start(x,perm,cont_p) ->
     begin
       if not (has_chan x ctx) then
         E.error_unknown_var_ctx x (exp.A.st_data)
       else (* the type a of x must be /\ *)
         let (a,p,id) = find_tp x ctx (exp.A.st_data) in
-        match a with
-        | A.TpName(v) -> check_exp' trace env (update_tp env x ((A.expd_tp env v),p,id) ctx) exp zc ext cont
-        | A.Up(a) -> check_exp' trace env (update_tp env x (a,p,id) ctx) cont_p zc ext cont
-        | _ ->
-          error (exp.A.st_data) ("invalid type of " ^ x ^
-                                 ", expected up arrow, found: " ^ PP.pp_proto env a)
+        if not (A.perm_eq p perm) then
+          error (exp.A.st_data) ("permission given during start must match actual permission (" ^ PP.pp_perm p ^ ")")
+        else
+          match a with
+          | A.TpName(v) -> check_exp' trace env (update_tp env x ((A.expd_tp env v),p,id) ctx) exp zc ext cont
+          | A.Up(k, a) -> check_exp' trace env (update_tp env x (A.proto_subst_perm p k a,p,id) ctx) cont_p zc ext cont
+          | _ ->
+            error (exp.A.st_data) ("invalid type of " ^ x ^
+                                   ", expected up arrow, found: " ^ PP.pp_proto env a)
     end
   | A.Finish(x,cont_p) ->
     begin

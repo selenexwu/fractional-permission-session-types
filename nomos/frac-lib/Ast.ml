@@ -71,7 +71,7 @@ and proto =
   | Lolli of stype * proto            (* A -o B *)
   | One                               (* 1 *)
   | TpName of tpname                  (* v *)
-  | Up of proto                       (* /\ A *)
+  | Up of permname * proto            (* /\.k A *)
   | Down of proto                     (* \/ A *)
   | DoubleDown of proto               (* \\// A *)
   | ExistsId of idname * proto        (* ?a. A *)
@@ -108,10 +108,10 @@ and 'a st_expr =
   | Wait of chan * 'a st_aug_expr                           (* wait x ; P *)
 
   (* mutability /\ \/ \\// *)
-  | Immut of chan list * 'a st_aug_expr                     (* immut [y] { P } *)
+  | Immut of chan list * permname * 'a st_aug_expr          (* immut [y] { p => P } *)
   | Continue of chan list                                   (* continue [y] *)
   | Mut of 'a st_aug_expr                                   (* mut { P } *)
-  | Start of chan * 'a st_aug_expr                          (* start x ; P *)
+  | Start of chan * perm * 'a st_aug_expr                   (* start x{p} ; P *)
   | Finish of chan * 'a st_aug_expr                         (* finish x ; P *)
   | Mutate of chan * 'a st_aug_expr                         (* mutate x ; P *)
 
@@ -157,7 +157,7 @@ type context =
     linear: chan_tp list;
   }
 
-type cont = (chan_tp list * proto * idname list) option
+type cont = (chan_tp list * proto * idname list * chan list * permname) option
 
 type decl =
   | TpDef of tpname * proto                         (* type a = A *)
@@ -267,7 +267,11 @@ let rec proto_subst_perm p' v a = match a with
   | Lolli (t,b) -> Lolli (stype_subst_perm p' v t, proto_subst_perm p' v b)
   | One -> One
   | TpName x -> TpName x
-  | Up a -> Up (proto_subst_perm p' v a)
+  | Up(k, a) ->
+    if k = v then
+      Up(k, a)
+    else
+      Up (k, proto_subst_perm p' v a)
   | Down a -> Down (proto_subst_perm p' v a)
   | DoubleDown a -> DoubleDown (proto_subst_perm p' v a)
   | ExistsId (x, a) -> ExistsId (x, proto_subst_perm p' v a)
@@ -294,7 +298,7 @@ let rec proto_subst_id id' v a = match a with
   | Lolli (t,b) -> Lolli (stype_subst_id id' v t, proto_subst_id id' v b)
   | One -> One
   | TpName x -> TpName x
-  | Up a -> Up (proto_subst_id id' v a)
+  | Up(k,a) -> Up (k, proto_subst_id id' v a)
   | Down a -> Down (proto_subst_id id' v a)
   | DoubleDown a -> DoubleDown (proto_subst_id id' v a)
   | ExistsId (x, a) ->

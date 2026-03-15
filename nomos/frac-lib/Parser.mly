@@ -1,7 +1,8 @@
 (* import *)
 %token <string> IMPORT
 (* functional layer *)
-%token <int> INT
+/* %token <int> INT */
+%token ONE
 %token <float> FLOAT
 %token <string> ID
 %token <Ast.printable list> QUOTED_STRING
@@ -50,9 +51,12 @@ perm_term:
     | var = ID; TIMES; coef = FLOAT; { (var, Q.of_float coef) }
     | var = ID;                      { (var, Q.one) }
     | const = FLOAT;                 { ("", Q.of_float const) }
+    | ONE;                           { ("", Q.one) }
+    | ONE; TIMES; var = ID;          { (var, Q.one) }
+    | var = ID; TIMES; ONE;          { (var, Q.one) }
 
 perm:
-    | TIMES;                                { Ast.Owned }
+    | TIMES;                                         { Ast.Owned }
     | ps = separated_nonempty_list(PLUS, perm_term); { Ast.Fractional (Ast.StringMap.of_seq (List.to_seq ps)) }
 
 stype:
@@ -64,8 +68,8 @@ proto:
     | AMPERSAND; LBRACE; choices = separated_list(COMMA, label_proto); RBRACE   { Ast.With(choices) }
     | s = stype; TIMES; t = proto                                               { Ast.Tensor(s,t) }
     | s = stype; LOLLI; t = proto                                               { Ast.Lolli(s,t) }
-    | INT                                                                       { Ast.One }
-    | UP; t = proto                                                             { Ast.Up(t) }
+    | ONE                                                                       { Ast.One }
+    | UP; k = ID; DOT; t = proto                                                { Ast.Up(k,t) }
     | DOWN; t = proto                                                           { Ast.Down(t) }
     | DOUBLEDOWN; t = proto                                                     { Ast.DoubleDown(t) }
     | QUESTION; a = ID; DOT; t = proto                                          { Ast.ExistsId(a,t) }
@@ -127,10 +131,10 @@ st:
     |  CLOSE; x = ID                                                                                                     { {st_structure = Ast.Close(x); st_data = Ast.make_ext $startpos $endpos } }
     |  ABORT                                                                                                             { {st_structure = Ast.Abort; st_data = Ast.make_ext $startpos $endpos } }
     |  WAIT; x = ID; SEMI; p = st                                                                                        { {st_structure = Ast.Wait(x,p); st_data = Ast.make_ext $startpos $endpos(x)} }
-    |  IMMUT; xs = list(ID); LBRACE; p = st; RBRACE                                                                      { {st_structure = Ast.Immut(xs,p); st_data = Ast.make_ext $startpos $endpos } }
+    |  IMMUT; xs = list(ID); LBRACE; per = ID; RRARROW; p = st; RBRACE                                                   { {st_structure = Ast.Immut(xs,per,p); st_data = Ast.make_ext $startpos $endpos } }
     |  CONTINUE; xs = list(ID)                                                                                           { {st_structure = Ast.Continue(xs); st_data = Ast.make_ext $startpos $endpos } }
     |  MUT; LBRACE; p = st; RBRACE                                                                                       { {st_structure = Ast.Mut(p); st_data = Ast.make_ext $startpos $endpos } }
-    |  START; x = ID; SEMI; p = st                                                                                       { {st_structure = Ast.Start(x,p); st_data = Ast.make_ext $startpos $endpos(x) } }
+    |  START; x = ID; LBRACE; per = perm; RBRACE; SEMI; p = st                                                           { {st_structure = Ast.Start(x,per,p); st_data = Ast.make_ext $startpos $endpos(x) } }
     |  FINISH; x = ID; SEMI; p = st                                                                                      { {st_structure = Ast.Finish(x,p); st_data = Ast.make_ext $startpos $endpos(x) } }
     |  MUTATE; x = ID; SEMI; p = st                                                                                      { {st_structure = Ast.Mutate(x,p); st_data = Ast.make_ext $startpos $endpos(x) } }
     |  x1 = ID; COMMA; x2 = ID; LARROW; SPLIT; x = ID; SEMI; p = st                                                      { {st_structure = Ast.Split(x1,x2,x,p); st_data = Ast.make_ext $startpos $endpos(x) } }

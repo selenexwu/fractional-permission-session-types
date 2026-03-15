@@ -8,7 +8,7 @@ module F = Lib_frac.FracFlags
      C.Command.run ~version:"1.0" ~build_info:"stable" NC.nomos_command;; *)
 
 let () =
-  let file = "frac-tests/queue.frac" in
+  let file = "frac-tests/roundtrip.frac" in
   let rawtxn = TL.read file in
   let TL.RawTransaction env = rawtxn in
   let () = print_endline (PP.pp_prog env) in

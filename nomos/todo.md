@@ -3,7 +3,7 @@
 - fix up rational handling
 - Anything marked with TODO in code
 - probably a ton of uniqueness checks
-- split /\\R into the two rules (doesn't change much so not super necessary)
+- handle products of variables
 
 # Done
 - add cases to type ast for new types
@@ -20,3 +20,10 @@
 - Better permission equality
 - Better permission parsing
 - use rationals instead of floats for permissions
+- share+own now allowed inside immutable operations again (just revert the commit)
+- continue only has to name unlocked channels
+- new items in continuation
+- substitute out p_c in \\\\//R
+- changes to start (new syntax + has to match)
+- changes to /\\R rule (new syntax for immut blocks, new variable in V, multiply unlocked context + continuation context by this amount, acts like a forall (also change /\\L))
+- don't multiply in tensor and lolli
