@@ -1,0 +1,73 @@
+type nat = /\ k. &{
+  val: \\// mut_nat,
+  dup: ?a. <nat, *, a> * \/ nat
+}
+
+type mut_nat = +{zero: 1, succ: mut_nat}
+
+proc zero : . |- (n : nat) =
+  immut { p =>
+    case n (
+      val => mut {
+        n.zero;
+        close n
+      }
+    | dup =>
+        {n1i}, n1 <- zero;
+        send n {n1i};
+        send n n1;
+        continue
+    )
+  }
+
+proc succ[n0i] : (n0 : <nat, *, n0i>) |- (n : nat) =
+  share n0;
+  immut n0 { p =>
+    case n (
+      val => mut {
+        own n0;
+        n.succ;
+        start n0{*}; n0.val; mutate n0;
+        n <-> n0
+      }
+    | dup =>
+        start n0{p};
+        n0.dup;
+        {n1i} <- recv n0;
+        n1 <- recv n0;
+        finish n0;
+        {n2i}, n2 <- succ[n1i] n1;
+        send n {n2i};
+        send n n2;
+        continue n0
+    )
+  }
+
+proc drop_mut[ni] : (n : <mut_nat, *, ni>) |- (d : 1) =
+  case n (
+    zero =>
+      wait n;
+      close d
+  | succ =>
+      d <- drop_mut[ni] n
+  )
+
+proc drop[ni] : (n : <nat, *, ni>) |- (d : 1) = start n{*}; n.val; mutate n; d <- drop_mut[ni] n
+
+type bool = +{true: 1, false: 1}
+
+proc lte[n1i,n2i] : (n1 : <mut_nat,*,n1i>), (n2 : <mut_nat,*,n2i>) |- (b : bool) =
+  case n1 (
+    zero =>
+      wait n1;
+      {di}, d <- drop_mut[n2i] n2; wait d;
+      b.true; close b
+  | succ =>
+      case n2 (
+        zero =>
+          wait n2;
+          {di}, d <- drop_mut[n1i] n1; wait d;
+          b.false; close b
+      | succ => b <- lte[n1i,n2i] n1 n2
+      )
+  )

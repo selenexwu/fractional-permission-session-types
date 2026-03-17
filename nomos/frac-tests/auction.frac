@@ -1,0 +1,354 @@
+(* Natural Numbers *)
+
+type nat = /\ k. &{
+  val: \\// mut_nat,
+  dup: ?a. <nat, *, a> * \/ nat
+}
+
+type mut_nat = +{zero: 1, succ: mut_nat}
+
+proc zero : . |- (n : nat) =
+  immut { p =>
+    case n (
+      val => mut {
+        n.zero;
+        close n
+      }
+    | dup =>
+        {n1i}, n1 <- zero;
+        send n {n1i};
+        send n n1;
+        continue
+    )
+  }
+
+proc succ[n0i] : (n0 : <nat, *, n0i>) |- (n : nat) =
+  share n0;
+  immut n0 { p =>
+    case n (
+      val => mut {
+        own n0;
+        n.succ;
+        start n0{*}; n0.val; mutate n0;
+        n <-> n0
+      }
+    | dup =>
+        start n0{p};
+        n0.dup;
+        {n1i} <- recv n0;
+        n1 <- recv n0;
+        finish n0;
+        {n2i}, n2 <- succ[n1i] n1;
+        send n {n2i};
+        send n n2;
+        continue n0
+    )
+  }
+
+proc drop_mut_nat[ni] : (n : <mut_nat, *, ni>) |- (d : 1) =
+  case n (
+    zero =>
+      wait n;
+      close d
+  | succ =>
+      d <- drop_mut_nat[ni] n
+  )
+
+proc drop_nat[ni] : (n : <nat, *, ni>) |- (d : 1) = start n{*}; n.val; mutate n; d <- drop_mut_nat[ni] n
+
+type bool = +{true: 1, false: 1}
+
+proc lte[n1i,n2i] : (n1 : <mut_nat,*,n1i>), (n2 : <mut_nat,*,n2i>) |- (b : bool) =
+  case n1 (
+    zero =>
+      wait n1;
+      {di}, d <- drop_mut_nat[n2i] n2; wait d;
+      b.true; close b
+  | succ =>
+      case n2 (
+        zero =>
+          wait n2;
+          {di}, d <- drop_mut_nat[n1i] n1; wait d;
+          b.false; close b
+      | succ => b <- lte[n1i,n2i] n1 n2
+      )
+  )
+
+(* Auction and Buyer *)
+
+type auction = /\k. +{
+  running: ?max_bid. <nat, *, max_bid> * &{
+    bid: \\// !id. <nat, *, id> -o !amount. <nat, *, amount> -o auction,
+    ok: \/ auction
+  },
+  done: ?winner. <nat, *, winner> * \/ auction
+}
+
+type buyer = !auci. &{
+  take: <auction, *, auci> -o <auction, *, auci> * buyer,
+  view: !!p. <auction, p, auci> -o <auction, p, auci> * 1
+}
+
+proc running_auction[mbi,wi,nbi] : (max_bid : <nat,*,mbi>), (winner : <nat,*,wi>), (num_bids : <mut_nat,*,nbi>) |- (auc : auction) =
+  case num_bids (
+    zero =>
+      wait num_bids;
+      {di}, d <- drop_nat[mbi] max_bid; wait d;
+      auc <- done_auction[wi] winner
+  | succ =>
+      share max_bid; share winner;
+      immut max_bid winner { p =>
+        auc.running;
+        start max_bid{p}; max_bid.dup; {mb1i} <- recv max_bid; mb1 <- recv max_bid; finish max_bid;
+        send auc {mb1i}; send auc mb1;
+        case auc (
+          bid => mut {
+            own max_bid; own winner;
+            {idi} <- recv auc; id <- recv auc;
+            {amounti} <- recv auc; amount <- recv auc;
+            start max_bid{*}; max_bid.dup; {mb2i} <- recv max_bid; mb2 <- recv max_bid; finish max_bid;
+            start mb2{*}; mb2.val; mutate mb2;
+            start amount{*}; amount.dup; {am1i} <- recv amount; am1 <- recv amount; finish amount;
+            start am1{*}; am1.val; mutate am1;
+            {bi}, b <- lte[am1i,mb2i] am1 mb2;
+            case b (
+              true => (* bid too small *)
+              wait b;
+              {di}, d <- drop_nat[amounti] amount; wait d;
+              {d1i}, d1 <- drop_nat[idi] id; wait d1;
+              auc <- running_auction[mbi,wi,nbi] max_bid winner num_bids
+            | false => (* big large enough *)
+              wait b;
+              {di}, d <- drop_nat[mbi] max_bid; wait d;
+              {d1i}, d1 <- drop_nat[wi] winner; wait d1;
+              auc <- running_auction[amounti,idi,nbi] amount id num_bids
+            )
+          }
+        | ok => continue max_bid winner
+        )
+      }
+  )
+
+proc done_auction[wi] : (winner : <nat, *, wi>) |- (auc : auction) =
+  share winner;
+  immut winner { p =>
+    auc.done;
+    start winner{p}; winner.dup; {w1i} <- recv winner; w1 <- recv winner; finish winner;
+    send auc {w1i}; send auc w1;
+    continue winner
+  }
+
+proc buyer[mbi,idi] : (max_bid : <nat, *, mbi>), (id : <nat, *, idi>) |- (buy : buyer) =
+  {auci} <- recv buy;
+  case buy (
+    take =>
+      auc <- recv buy;
+
+      start auc{*};
+      case auc (
+        running =>
+          {cbi} <- recv auc; current_bid <- recv auc;
+          start current_bid{*}; current_bid.dup; {cb1i} <- recv current_bid; cb1 <- recv current_bid; finish current_bid;
+          start max_bid{*}; max_bid.dup; {mb1i} <- recv max_bid; mb1 <- recv max_bid; finish max_bid;
+          start cb1{*}; cb1.val; mutate cb1;
+          start mb1{*}; mb1.val; mutate mb1;
+          {bi}, b <- lte[mb1i,cb1i] mb1 cb1;
+          case b (
+            true => (* we're not going to bid *)
+              wait b;
+              auc.ok; finish auc;
+              send buy auc;
+              {di}, d <- drop_nat[cbi] current_bid; wait d;
+              buy <- buyer[mbi,idi] max_bid id
+          | false => (* we will bid one more than the current bid *)
+              wait b;
+              auc.bid; mutate auc;
+              {nbi}, new_bid <- succ[cbi] current_bid;
+              start id{*}; id.dup; {id1i} <- recv id; id1 <- recv id; finish id;
+              send auc {id1i}; send auc id1;
+              send auc {nbi}; send auc new_bid;
+
+              send buy auc;
+              buy <- buyer[mbi,idi] max_bid id
+          )
+
+      | done =>
+          {wi} <- recv auc; winner <- recv auc; finish auc;
+          (* yay, we know who won *)
+          {di}, d <- drop_nat[wi] winner; wait d;
+
+          send buy auc;
+          buy <- buyer[mbi,idi] max_bid id
+      )
+
+  | view =>
+      {{aucp}} <- recv buy;
+      auc <- recv buy;
+      (* view or something *)
+      send buy auc;
+
+      {di}, d <- drop_nat[mbi] max_bid; wait d;
+      {d1i}, d1 <- drop_nat[idi] id; wait d1;
+      close buy
+  )
+
+(* Buyer Queue *)
+
+type buyer_queue = &{
+  ins : !a. <buyer,*,a> -o buyer_queue,
+  del : +{none : 1, some : ?a. <buyer,*,a> * buyer_queue}
+}
+
+proc empty : . |- (q : buyer_queue) =
+  case q (
+    ins =>
+      {xi} <- recv q;
+      x <- recv q;
+      {ei}, e <- empty;
+      q <- elem[xi,ei] x e
+  | del =>
+      q.none;
+      close q
+  )
+
+proc elem[xi,ti] : (x : <buyer,*,xi>), (t : <buyer_queue,*,ti>) |- (q : buyer_queue) =
+  case q (
+    ins =>
+      {yi} <- recv q;
+      y <- recv q;
+      t.ins;
+      send t {yi};
+      send t y;
+      q <- elem[xi,ti] x t
+  | del =>
+      q.some;
+      send q {xi};
+      send q x;
+      q <-> t
+  )
+
+(* Put it all together *)
+
+proc all_take[auci,q1i,q2i] :
+  (auc : <auction,*,auci>),
+  (q1 : <buyer_queue,*,q1i>),
+  (q2 : <buyer_queue,*,q2i>)
+|- (res : <auction,*,auci> * <buyer_queue,*,q2i> * 1) =
+  q1.del;
+  case q1 (
+    none =>
+      wait q1;
+      send res auc;
+      send res q2;
+      close res
+  | some =>
+      {bi} <- recv q1; buyer <- recv q1;
+      send buyer {auci};
+      buyer.take;
+      send buyer auc;
+      auc <- recv buyer;
+      q2.ins;
+      send q2 {bi}; send q2 buyer;
+      res <- all_take[auci,q1i,q2i] auc q1 q2
+  )
+
+proc all_view[auci,qi]{aucp} :
+  (auc : <auction,aucp,auci>),
+  (q : <buyer_queue,*,qi>)
+|- (res : <auction,aucp,auci> * 1) =
+  q.del;
+  case q (
+    none =>
+      wait q;
+      send res auc;
+      close res
+  | some =>
+      {bi} <- recv q; buyer <- recv q;
+      auc1, auc2 <- split auc;
+      {ri}, rest <- all_view[auci,qi]{0.5*aucp} auc1 q;
+      send buyer {auci};
+      buyer.view;
+      send buyer {{0.5*aucp}}; send buyer auc2;
+      auc2 <- recv buyer; wait buyer;
+      auc1 <- recv rest; wait rest;
+      auc <- merge auc1, auc2;
+      send res auc;
+      close res
+  )
+
+proc one : . |- (n1 : nat) =
+  {n0i}, n0 <- zero;
+  n1 <- succ[n0i] n0
+
+proc two : . |- (n2 : nat) =
+  {n0i}, n0 <- zero;
+  {n1i}, n1 <- succ[n0i] n0;
+  n2 <- succ[n1i] n1
+
+proc three : . |- (n3 : nat) =
+  {n0i}, n0 <- zero;
+  {n1i}, n1 <- succ[n0i] n0;
+  {n2i}, n2 <- succ[n1i] n1;
+  n3 <- succ[n2i] n2
+
+proc four : . |- (n4 : nat) =
+  {n0i}, n0 <- zero;
+  {n1i}, n1 <- succ[n0i] n0;
+  {n2i}, n2 <- succ[n1i] n1;
+  {n3i}, n3 <- succ[n2i] n2;
+  n4 <- succ[n3i] n3
+
+proc eight : . |- (n8 : nat) =
+  {n0i}, n0 <- zero;
+  {n1i}, n1 <- succ[n0i] n0;
+  {n2i}, n2 <- succ[n1i] n1;
+  {n3i}, n3 <- succ[n2i] n2;
+  {n4i}, n4 <- succ[n3i] n3;
+  {n5i}, n5 <- succ[n4i] n4;
+  {n6i}, n6 <- succ[n5i] n5;
+  {n7i}, n7 <- succ[n6i] n6;
+  n8 <- succ[n7i] n7
+
+proc main : . |- (res : 1) =
+  {mb1i}, max_bid1 <- two;
+  {id1i}, id1 <- one;
+  {b1i}, b1 <- buyer[mb1i,id1i] max_bid1 id1;
+
+  {mb2i}, max_bid2 <- three;
+  {id2i}, id2 <- two;
+  {b2i}, b2 <- buyer[mb2i,id2i] max_bid2 id2;
+
+  {mb3i}, max_bid3 <- one;
+  {id3i}, id3 <- three;
+  {b3i}, b3 <- buyer[mb3i,id3i] max_bid3 id3;
+
+  {mb4i}, max_bid4 <- one;
+  {id4i}, id4 <- four;
+  {b4i}, b4 <- buyer[mb4i,id4i] max_bid4 id4;
+
+  {z1i}, z1 <- zero; {z2i}, z2 <- zero;
+  {nbi}, num_bids <- eight; start num_bids{*}; num_bids.val; mutate num_bids;
+  {auci}, auc <- running_auction[z1i,z2i,nbi] z1 z2 num_bids;
+
+  {q1i}, q1 <- empty;
+  {q2i}, q2 <- elem[b1i,q1i] b1 q1;
+  {q3i}, q3 <- elem[b2i,q2i] b2 q2;
+  {q4i}, q4 <- elem[b3i,q3i] b3 q3;
+  {q5i}, q5 <- elem[b4i,q4i] b4 q4;
+
+  {q6i}, q6 <- empty;
+  {at1i}, at1 <- all_take[auci,q5i,q6i] auc q5 q6;
+  auc <- recv at1;
+  q6 <- recv at1;
+
+  {q7i}, q7 <- empty;
+  {at2i}, at2 <- all_take[auci,q6i,q7i] auc q6 q7;
+  auc <- recv at2;
+  q7 <- recv at2;
+
+  share auc;
+  {at3i}, at3 <- all_view[auci,q7i]{1} auc q7;
+  auc <- recv at3;
+  own auc;
+
+  abort (* no way to close an auction so we get stuck but that's whatever *)

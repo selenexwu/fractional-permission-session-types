@@ -11,12 +11,12 @@ proc succ[ni] : (n : <nat,*,ni>) |- (n1 : nat) =
 
 type A = 1
 
-type queue = /\k. &{ins : \\// !a. <A,*,a> -o queue,
+type stack = /\k. &{ins : \\// !a. <A,*,a> -o stack,
                     del : \\// +{none : 1,
-                                 some : ?a. <A,*,a> * queue},
-                    len : ?a. <nat,*,a> * \/ queue}
+                                 some : ?a. <A,*,a> * stack},
+                    len : ?a. <nat,*,a> * \/ stack}
 
-proc empty : . |- (q : queue) =
+proc empty : . |- (q : stack) =
   immut { p =>
     case q (
       ins => mut {
@@ -37,7 +37,7 @@ proc empty : . |- (q : queue) =
     )
   }
 
-proc elem[xi,ti] : (x : <A,*,xi>), (t : <queue,*,ti>) |- (q : queue) =
+proc elem[xi,ti] : (x : <A,*,xi>), (t : <stack,*,ti>) |- (q : stack) =
   share t;
   immut t { p =>
     case q (
@@ -45,12 +45,8 @@ proc elem[xi,ti] : (x : <A,*,xi>), (t : <queue,*,ti>) |- (q : queue) =
         own t;
         {yi} <- recv q;
         y <- recv q;
-        start t{*};
-        t.ins;
-        mutate t;
-        send t {yi};
-        send t y;
-        q <- elem[xi,ti] x t
+        {ui}, u <- elem[xi,ti] x t;
+        q <- elem[yi,ui] y u
       }
     | del => mut {
         own t;
@@ -71,4 +67,3 @@ proc elem[xi,ti] : (x : <A,*,xi>), (t : <queue,*,ti>) |- (q : queue) =
         continue t
     )
   }
-

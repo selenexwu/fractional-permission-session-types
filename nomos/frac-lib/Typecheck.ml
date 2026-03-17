@@ -326,7 +326,7 @@ let rec check_declared_list env ext args = match args with
 let check_perm p ctx =
   match p with
   | A.Owned -> true
-  | A.Fractional p -> A.StringMap.for_all (fun v x -> List.mem v ctx.A.permnames) p
+  | A.Fractional p -> A.StringMap.for_all (fun v x -> v = "" || List.mem v ctx.A.permnames) p
 
 let check_id id ctx =
   List.mem id ctx.A.idnames
@@ -884,11 +884,11 @@ and check_exp trace env ctx exp zc ext (cont : A.cont) = match (exp.A.st_structu
           error (exp.A.st_data) ("invalid type of " ^ x ^
                                  ", expected exists(id), found: " ^ PP.pp_proto env a)
     end
-  | A.SendPerm(x,p,cont_p) ->
+  | A.SendPerm(x,send_p,cont_p) ->
     begin
-      if not (check_perm p ctx) then
-        error (exp.A.st_data) ("invalid permission: " ^ PP.pp_perm p)
-      else match p with
+      if not (check_perm send_p ctx) then
+        error (exp.A.st_data) ("invalid permission: " ^ PP.pp_perm send_p)
+      else match send_p with
         | A.Owned -> error (exp.A.st_data) ("cannot send permission *")
         | _ ->
           if not (has_chan x ctx) then
@@ -898,7 +898,7 @@ and check_exp trace env ctx exp zc ext (cont : A.cont) = match (exp.A.st_structu
             else (* the type c of z must be exists(perm) *)
               match c with
               | A.TpName(v) -> check_exp' trace env ctx exp (z,A.expd_tp env v) ext cont
-              | A.ExistsPerm(k,a) -> check_exp' trace env ctx cont_p (z,A.proto_subst_perm p k a) ext cont
+              | A.ExistsPerm(k,a) -> check_exp' trace env ctx cont_p (z,A.proto_subst_perm send_p k a) ext cont
               | _ ->
                 error (exp.A.st_data) ("invalid type of " ^ x ^
                                        ", expected exists(perm), found: " ^ PP.pp_proto env c)
@@ -906,7 +906,7 @@ and check_exp trace env ctx exp zc ext (cont : A.cont) = match (exp.A.st_structu
             let (a,p,id) = find_tp x ctx (exp.A.st_data) in
             match a with
             | A.TpName(v) -> check_exp' trace env (update_tp env x ((A.expd_tp env v),p,id) ctx) exp zc ext cont
-            | A.ForallPerm(k,a) -> check_exp' trace env (update_tp env x (A.stype_subst_perm p k (a,p,id)) ctx) cont_p zc ext cont
+            | A.ForallPerm(k,a) -> check_exp' trace env (update_tp env x (A.stype_subst_perm send_p k (a,p,id)) ctx) cont_p zc ext cont
             | _ ->
               error (exp.A.st_data) ("invalid type of " ^ x ^
                                      ", expected forall(perm), found: " ^ PP.pp_proto env a)

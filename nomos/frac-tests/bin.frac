@@ -1,0 +1,106 @@
+type bin = /\k. &{
+  val: \\// mut_bin,
+  dup: ?a. <bin, *, a> * \/ bin
+}
+
+type mut_bin = +{b0: mut_bin, b1: mut_bin, e: 1}
+
+proc zero : . |- (b : bin) =
+  immut { p =>
+    case b (
+      val => mut {
+        b.e;
+        close b
+      }
+    | dup =>
+      {b1i}, b1 <- zero;
+      send b {b1i};
+      send b b1;
+      continue
+    )
+  }
+
+proc one : . |- (b : bin) =
+  immut { p =>
+    case b (
+      val => mut {
+        b.b1;
+        b.e;
+        close b
+      }
+    | dup =>
+      {b1i}, b1 <- one;
+      send b {b1i};
+      send b b1;
+      continue
+    )
+  }
+
+proc add_mut[b0i,b1i] : (b0 : <mut_bin, *, b0i>), (b1 : <mut_bin, *, b1i>) |- (b : mut_bin) =
+  case b0 (
+    b0 =>
+      case b1 (
+        b0 =>
+          b.b0;
+          b <- add_mut[b0i,b1i] b0 b1
+      | b1 =>
+          b.b1;
+          b <- add_mut[b0i,b1i] b0 b1
+      | e =>
+          wait b1;
+          b.b0;
+          b <-> b0
+      )
+  | b1 =>
+      case b1 (
+        b0 =>
+          b.b1;
+          b <- add_mut[b0i,b1i] b0 b1
+      | b1 =>
+          b.b0;
+          {ci}, c <- one;
+          start c{*}; c.val; mutate c;
+          {b2i}, b2 <- add_mut[b1i,ci] b1 c;
+          b <- add_mut[b0i,b2i] b0 b2
+      | e =>
+          wait b1;
+          b.b1;
+          b <-> b0
+      )
+  | e =>
+      wait b0;
+      b <-> b1
+  )
+
+proc add[b0i,b1i] : (b0 : <bin, *, b0i>), (b1 : <bin, *, b1i>) |- (b : bin) =
+  share b0; share b1;
+  immut b0 b1 { p =>
+    case b (
+      val => mut {
+        own b0; own b1;
+        start b0{*}; b0.val; mutate b0;
+        start b1{*}; b1.val; mutate b1;
+        b <- add_mut[b0i,b1i] b0 b1
+      }
+    | dup =>
+        start b0{p}; b0.dup;
+        {b2i} <- recv b0;
+        b2 <- recv b0; finish b0;
+        start b1{p}; b1.dup;
+        {b3i} <- recv b1;
+        b3 <- recv b1; finish b1;
+        {si}, s <- add[b2i,b3i] b2 b3;
+        send b {si};
+        send b s;
+        continue b0 b1
+    )
+  }
+
+proc drop_mut[bi] : (b : <mut_bin, *, bi>) |- (d : 1) =
+  case b (
+    b0 => d <- drop_mut[bi] b
+  | b1 => d <- drop_mut[bi] b
+  | e => wait b; close d
+  )
+
+proc drop[bi] : (b : <bin, *, bi>) |- (d : 1) = start b{*}; b.val; mutate b; d <- drop_mut[bi] b

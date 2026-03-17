@@ -1,0 +1,45 @@
+type nat = /\k. +{
+  zero: \/ nat,
+  succ: ?a. <nat, *, a> * \/ nat
+}
+
+proc zero : . |- (n : nat) =
+  immut { p =>
+    n.zero;
+    continue
+  }
+
+proc succ[n0i] : (n0 : <nat, *, n0i>) |- (n : nat) =
+  share n0;
+  immut n0 { p =>
+    n.succ;
+    {di}, d <- dup[n0i]{p} n0;
+    {n1i} <- recv d;
+    n1 <- recv d;
+    n0 <- recv d;
+    wait d;
+    send n {n1i};
+    send n n1;
+    continue n0
+  }
+
+proc dup[n0i]{n0p} : (n0 : <nat, n0p, n0i>) |- (n : ?a. <nat, *, a> * <nat, n0p, n0i> * 1) =
+  start n0{n0p};
+  case n0 (
+    zero =>
+      finish n0;
+      {n1i}, n1 <- zero;
+      send n {n1i};
+      send n n1;
+      send n n0;
+      close n
+  | succ =>
+      {n1i} <- recv n0;
+      n1 <- recv n0;
+      finish n0;
+      {n2i}, n2 <- succ[n1i] n1;
+      send n {n2i};
+      send n n2;
+      send n n0;
+      close n
+  )

@@ -4,6 +4,7 @@
 - Anything marked with TODO in code
 - probably a ton of uniqueness checks
 - handle products of variables
+- ensure permission substitution merges things properly
 
 # Done
 - add cases to type ast for new types
