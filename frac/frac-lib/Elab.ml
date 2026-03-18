@@ -73,7 +73,6 @@ let rec elab_decl env dcls = match dcls with
         begin
           match !F.syntax with                    (* print reconstructed term *)
               F.Implicit ->
-              (* ask Ankush *)
                 EM.error EM.Pragma ext' "implicit syntax currently not supported"
             | F.Explicit -> ()
         end
