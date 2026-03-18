@@ -1,0 +1,4 @@
+
+
+type map_worker = !in. <queue, *, in> -o ?out. <queue, *, out> * 1
+type reduce_worker = !in. <queue, *, in> -o ?out. <nat, *, out> * 1
