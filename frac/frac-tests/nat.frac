@@ -54,6 +54,36 @@ proc drop_mut[ni] : (n : <mut_nat, *, ni>) |- (d : 1) =
 
 proc drop[ni] : (n : <nat, *, ni>) |- (d : 1) = start n{*}; n.val; mutate n; d <- drop_mut[ni] n
 
+proc add_mut[n1i,n2i] : (n1 : <mut_nat,*,n1i>), (n2 : <mut_nat,*,n2i>) |- (n : mut_nat) =
+  case n1 (
+    zero =>
+      wait n1;
+      n <-> n2
+  | succ =>
+      n.succ;
+      n <- add_mut[n1i,n2i] n1 n2
+  )
+
+
+proc add[n1i,n2i] : (n1 : <nat,*,n1i>), (n2 : <nat,*,n2i>) |- (n : nat) =
+  share n1; share n2;
+  immut n1 n2 { p =>
+    case n (
+      val => mut {
+        own n1; own n2;
+        start n1{*}; n1.val; mutate n1;
+        start n2{*}; n2.val; mutate n2;
+        n <- add_mut[n1i,n2i] n1 n2
+      }
+    | dup =>
+        start n1{p}; n1.dup; {n3i} <- recv n1; n3 <- recv n1; finish n1;
+        start n2{p}; n2.dup; {n4i} <- recv n2; n4 <- recv n2; finish n2;
+        {di}, d <- add[n3i,n4i] n3 n4;
+        send n {di}; send n d;
+        continue n1 n2
+    )
+  }
+
 type bool = +{true: 1, false: 1}
 
 proc lte[n1i,n2i] : (n1 : <mut_nat,*,n1i>), (n2 : <mut_nat,*,n2i>) |- (b : bool) =
