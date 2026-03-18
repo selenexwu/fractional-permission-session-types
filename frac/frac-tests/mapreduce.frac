@@ -120,16 +120,13 @@ proc worker[ni] : (n : <nat, *, ni>) |- (out : worker) =
 
 (* Coordinator *)
 
-proc split_work[wi] : (w : <work,*,wi>) |- (out : ?w1i. <work,*,w1i> * ?w2i. <work,*,w2i> * ?w3i. <work,*,w3i> * 1) =
+proc partition_work[wi] : (w : <work,*,wi>) |- (out : ?w1i. <work,*,w1i> * ?w2i. <work,*,w2i> * ?w3i. <work,*,w3i> * 1) =
   {w1i}, w1 <- work;
   {w2i}, w2 <- work;
   send out {w1i}; send out w1;
   send out {w2i}; send out w2;
   send out {wi}; send out w;
   close out
-
-(* The coordinator and worker turn out to have the same interface. *)
-(* type coordinator = worker *)
 
 proc coordinator[k1i,k2i,k3i] :
   (k1 : <worker,*,k1i>),
@@ -142,7 +139,7 @@ proc coordinator[k1i,k2i,k3i] :
       submit => mut {
         own k1; own k2; own k3;
         {wi} <- recv out; work <- recv out;
-        {swi}, sw <- split_work[wi] work;
+        {swi}, sw <- partition_work[wi] work;
         {w1i} <- recv sw; w1 <- recv sw;
         {w2i} <- recv sw; w2 <- recv sw;
         {w3i} <- recv sw; w3 <- recv sw;
