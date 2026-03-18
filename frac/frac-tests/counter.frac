@@ -1,0 +1,77 @@
+type nat = /\ k. &{
+  val: \\// mut_nat,
+  dup: ?a. <nat, *, a> * \/ nat
+}
+
+type mut_nat = +{zero: 1, succ: mut_nat}
+
+proc zero : . |- (n : nat) =
+  immut { p =>
+    case n (
+      val => mut {
+        n.zero;
+        close n
+      }
+    | dup =>
+        {n1i}, n1 <- zero;
+        send n {n1i};
+        send n n1;
+        continue
+    )
+  }
+
+proc succ[n0i] : (n0 : <nat, *, n0i>) |- (n : nat) =
+  share n0;
+  immut n0 { p =>
+    case n (
+      val => mut {
+        own n0;
+        n.succ;
+        start n0{*}; n0.val; mutate n0;
+        n <-> n0
+      }
+    | dup =>
+        start n0{p};
+        n0.dup;
+        {n1i} <- recv n0;
+        n1 <- recv n0;
+        finish n0;
+        {n2i}, n2 <- succ[n1i] n1;
+        send n {n2i};
+        send n n2;
+        continue n0
+    )
+  }
+
+type counter = /\k. &{
+  inc: \\// counter,
+  read: ?a. <nat, *, a> * \/ counter,
+  done: \\// ?a. <nat, *, a> * 1
+}
+
+proc counter[ni] : (n : <nat, *, ni>) |- (c : counter) =
+  share n;
+  immut n { p =>
+    case c (
+      inc => mut {
+        own n;
+        {n1i}, n1 <- succ[ni] n;
+        c <- counter[n1i] n1
+      }
+    | read =>
+        start n{p};
+        n.dup;
+        {n1i} <- recv n;
+        n1 <- recv n;
+        finish n;
+        send c {n1i};
+        send c n1;
+        continue n
+    | done => mut {
+        own n;
+        send c {ni};
+        send c n;
+        close c
+      }
+    )
+  }

@@ -1,0 +1,101 @@
+type nat = +{zero : 1,
+             succ : nat}
+
+proc zero : . |- (n : nat) =
+  n.zero;
+  close n
+
+proc succ[ni] : (n : <nat,*,ni>) |- (n1 : nat) =
+  n1.succ;
+  n1 <-> n
+
+proc add[n1i,n2i] : (n1 : <nat,*,n1i>), (n2 : <nat,*,n2i>) |- (n : nat) =
+  case n1 (
+    zero =>
+      wait n1;
+      n <-> n2
+  | succ =>
+      n.succ;
+      n <- add[n1i,n2i] n1 n2
+  )
+
+type A = 1
+
+type tree = /\k. &{
+  ins: \\// !a. <A, *, a> -o tree,
+  size: ?a. <nat, *, a> * \/ tree
+}
+
+proc leaf : . |- (t : tree) =
+  immut { p =>
+    case t (
+      ins => mut {
+        {xi} <- recv t;
+        x <- recv t;
+        {t1i}, t1 <- leaf;
+        {t2i}, t2 <- leaf;
+        t <- left_node[xi,t1i,t2i] x t1 t2
+      }
+    | size =>
+        {ni}, n <- zero;
+        send t {ni};
+        send t n;
+        continue
+    )
+  }
+
+proc left_node[xi,t1i,t2i] : (x : <A, *, xi>), (t1 : <tree, *, t1i>), (t2 : <tree, *, t2i>) |- (t : tree) =
+  share t1; share t2;
+  immut t1 t2 { p =>
+    case t (
+      ins => mut {
+        own t1; own t2;
+        {yi} <- recv t;
+        y <- recv t;
+        start t1{*}; t1.ins; mutate t1;
+        send t1 {yi};
+        send t1 y;
+        t <- right_node[xi,t1i,t2i] x t1 t2
+      }
+    | size =>
+        start t1{p}; t1.size;
+        {n1i} <- recv t1;
+        n1 <- recv t1; finish t1;
+        start t2{p}; t2.size;
+        {n2i} <- recv t2;
+        n2 <- recv t2; finish t2;
+        {si}, s <- add[n1i,n2i] n1 n2;
+        {s1i}, s1 <- succ[si] s;
+        send t {s1i};
+        send t s1;
+        continue t1 t2
+    )
+  }
+
+proc right_node[xi,t1i,t2i] : (x : <A, *, xi>), (t1 : <tree, *, t1i>), (t2 : <tree, *, t2i>) |- (t : tree) =
+  share t1; share t2;
+  immut t1 t2 { p =>
+    case t (
+      ins => mut {
+        own t1; own t2;
+        {yi} <- recv t;
+        y <- recv t;
+        start t2{*}; t2.ins; mutate t2;
+        send t2 {yi};
+        send t2 y;
+        t <- left_node[xi,t1i,t2i] x t1 t2
+      }
+    | size =>
+        start t1{p}; t1.size;
+        {n1i} <- recv t1;
+        n1 <- recv t1; finish t1;
+        start t2{p}; t2.size;
+        {n2i} <- recv t2;
+        n2 <- recv t2; finish t2;
+        {si}, s <- add[n1i,n2i] n1 n2;
+        {s1i}, s1 <- succ[si] s;
+        send t {s1i};
+        send t s1;
+        continue t1 t2
+    )
+  }

@@ -1,0 +1,74 @@
+type nat = +{zero : 1,
+             succ : nat}
+
+proc zero : . |- (n : nat) =
+  n.zero;
+  close n
+
+proc succ[ni] : (n : <nat,*,ni>) |- (n1 : nat) =
+  n1.succ;
+  n1 <-> n
+
+type A = 1
+
+type queue = /\k. &{ins : \\// !a. <A,*,a> -o queue,
+                    del : \\// +{none : 1,
+                                 some : ?a. <A,*,a> * queue},
+                    len : ?a. <nat,*,a> * \/ queue}
+
+proc empty : . |- (q : queue) =
+  immut { p =>
+    case q (
+      ins => mut {
+        {xi} <- recv q;
+        x <- recv q;
+        {ei}, e <- empty;
+        q <- elem[xi,ei] x e
+      }
+    | del => mut {
+        q.none;
+        close q
+      }
+    | len =>
+      {n0i}, n0 <- zero;
+      send q {n0i};
+      send q n0;
+      continue
+    )
+  }
+
+proc elem[xi,ti] : (x : <A,*,xi>), (t : <queue,*,ti>) |- (q : queue) =
+  share t;
+  immut t { p =>
+    case q (
+      ins => mut {
+        own t;
+        {yi} <- recv q;
+        y <- recv q;
+        start t{*};
+        t.ins;
+        mutate t;
+        send t {yi};
+        send t y;
+        q <- elem[xi,ti] x t
+      }
+    | del => mut {
+        own t;
+        q.some;
+        send q {xi};
+        send q x;
+        q <-> t
+      }
+    | len =>
+        start t{p};
+        t.len;
+        {ni} <- recv t;
+        n <- recv t;
+        finish t;
+        {n1i}, n1 <- succ[ni] n;
+        send q {n1i};
+        send q n1;
+        continue t
+    )
+  }
+
