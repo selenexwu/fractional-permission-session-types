@@ -5,11 +5,18 @@ module PP = Lib_frac.Pprint
 module F = Lib_frac.FracFlags
 module EM = Lib_frac.ErrorMsg
 
+let error m = EM.error EM.Pragma None m;;
+
 let check_extension filename ext =
   if Filename.check_suffix filename ext
   then filename
   else
     EM.error EM.File None ("'" ^ filename ^ "' does not have " ^ ext ^ " extension!\n");;
+
+let set_syntax s =
+  match F.parseSyntax s with
+      None -> error ("% syntax " ^ s ^ " not recognized\n")
+    | Some syn -> F.syntax := syn
 
 let file (ext : string) =
   C.Command.Arg_type.create
@@ -30,8 +37,8 @@ let frac_command =
       let%map_open
         verbosity = flag "-v" (optional_with_default 0 int)
           ~doc:"verbosity:- 0: quiet, 1: default, 2: verbose, 3: debugging mode"
-        (* and syntax = flag "-s" (optional_with_default "explicit" string)
-             ~doc:"syntax: implicit, explicit" *)
+        and syntax = flag "-s" (optional_with_default "explicit" string)
+          ~doc:"syntax: implicit, explicit"
         (* and tc_only = flag "-tc" no_arg
              ~doc:"type check only" *)
         (* and run_only = flag "-run" no_arg
@@ -42,6 +49,7 @@ let frac_command =
           (* let TL.RawTransaction env = rawtxn in
              let () = print_endline (PP.pp_prog env) in *)
           F.verbosity := verbosity;
+          set_syntax syntax;
           let _txn = TL.check rawtxn in
           ())
 

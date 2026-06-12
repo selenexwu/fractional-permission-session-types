@@ -1,0 +1,101 @@
+type nat = /\ k. &{
+  val: \\// mut_nat,
+  dup: ?a. <nat, *, a> * \/ nat
+}
+
+type mut_nat = +{zero: 1, succ: mut_nat}
+
+proc zero : . |- (n : nat) =
+  immut { p =>
+    case n (
+      val => mut {
+        n.zero;
+        close n
+      }
+    | dup =>
+        {n1i}, n1 <- zero;
+        send n {n1i};
+        send n n1;
+        continue
+    )
+  }
+
+proc succ[n0i] : (n0 : <nat, *, n0i>) |- (n : nat) =
+  share n0;
+  immut n0 { p =>
+    case n (
+      val => mut {
+        own n0;
+        n.succ;
+        n0.val;
+        n <-> n0
+      }
+    | dup =>
+        n0.dup;
+        {n1i} <- recv n0;
+        n1 <- recv n0;
+        {n2i}, n2 <- succ[n1i] n1;
+        send n {n2i};
+        send n n2;
+        continue n0
+    )
+  }
+
+proc drop_mut[ni] : (n : <mut_nat, *, ni>) |- (d : 1) =
+  case n (
+    zero =>
+      wait n;
+      close d
+  | succ =>
+      d <- drop_mut[ni] n
+  )
+
+proc drop[ni] : (n : <nat, *, ni>) |- (d : 1) = n.val; d <- drop_mut[ni] n
+
+proc add_mut[n1i,n2i] : (n1 : <mut_nat,*,n1i>), (n2 : <mut_nat,*,n2i>) |- (n : mut_nat) =
+  case n1 (
+    zero =>
+      wait n1;
+      n <-> n2
+  | succ =>
+      n.succ;
+      n <- add_mut[n1i,n2i] n1 n2
+  )
+
+
+proc add[n1i,n2i] : (n1 : <nat,*,n1i>), (n2 : <nat,*,n2i>) |- (n : nat) =
+  share n1; share n2;
+  immut n1 n2 { p =>
+    case n (
+      val => mut {
+        own n1; own n2;
+        n1.val;
+        n2.val;
+        n <- add_mut[n1i,n2i] n1 n2
+      }
+    | dup =>
+        n1.dup; {n3i} <- recv n1; n3 <- recv n1;
+        n2.dup; {n4i} <- recv n2; n4 <- recv n2;
+        {di}, d <- add[n3i,n4i] n3 n4;
+        send n {di}; send n d;
+        continue n1 n2
+    )
+  }
+
+type bool = +{true: 1, false: 1}
+
+proc lte[n1i,n2i] : (n1 : <mut_nat,*,n1i>), (n2 : <mut_nat,*,n2i>) |- (b : bool) =
+  case n1 (
+    zero =>
+      wait n1;
+      {di}, d <- drop_mut[n2i] n2; wait d;
+      b.true; close b
+  | succ =>
+      case n2 (
+        zero =>
+          wait n2;
+          {di}, d <- drop_mut[n1i] n1; wait d;
+          b.false; close b
+      | succ => b <- lte[n1i,n2i] n1 n2
+      )
+  )

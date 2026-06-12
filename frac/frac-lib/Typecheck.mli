@@ -5,6 +5,7 @@ module A = Ast
    val ssync_tp :
      (A.decl * 'a) list ->
      A.stype -> ((int * int) * (int * int) * string) option -> unit *)
+val valid_implicit_top_type : (A.decl * 'a) list -> A.proto -> bool
 val contractive : A.proto -> bool
 val is_tpdef : (A.decl * 'a) list -> string -> bool
 val is_expdecdef : (A.decl * 'a) list -> string -> bool

@@ -68,15 +68,31 @@ let rec elab_decl env dcls = match dcls with
   | (A.ExpDecDef(f,(ids,ps,delta,(x,a)),p), ext')::dcls' ->
       (* do not print process declaration so they are printed close to their use *)
       let () = if dups ((x,(a,A.Owned,""))::delta) then error ext' ("duplicate variable in process declaration") else () in
-      (* let _ctx = ssync_ctx env delta ext' in *)
       let () =
         begin
-          match !F.syntax with                    (* print reconstructed term *)
-              F.Implicit ->
-                EM.error EM.Pragma ext' "implicit syntax currently not supported"
-            | F.Explicit -> ()
+          match !F.syntax with
+          | F.Implicit ->
+              if not (TC.valid_implicit_top_type env a) then
+                error ext' "right type is invalid in implicit syntax"
+              else if
+                not
+                  (List.fold_left
+                     (fun acc (_, (a, _, _)) -> acc && TC.valid_implicit_top_type env a)
+                     true delta )
+              then error ext' "a left type is invalid in implicit syntax"
+              else ()
+          | F.Explicit -> ()
         end
       in
+      (* let _ctx = ssync_ctx env delta ext' in *)
+      (* let () =
+           begin
+             match !F.syntax with                    (\* print reconstructed term *\)
+                 F.Implicit ->
+                   EM.error EM.Pragma ext' "implicit syntax currently not supported"
+               | F.Explicit -> ()
+           end
+         in *)
       let ctx = { A.idnames = ids ; A.permnames = ps ; A.owned = [] ; A.locked = [] ; A.linear = delta } in
       let () = try TC.checkexp false env ctx p (x,a) ext' None (* approx. type check *)
                with EM.TypeError msg ->

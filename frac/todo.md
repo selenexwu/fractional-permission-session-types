@@ -5,6 +5,15 @@
 - probably a ton of uniqueness checks
 - handle products of variables
 
+- check that you never send a down arrow (including double down) or use it as a parameter to a process definition (makes it so they can't be applied eagerly)
+- right side doesn't get reconstructed
+  - we can in theory eagerly create mut blocks, but I think that will feel weird
+  - we cannot eagerly create immut blocks without significant futher inference for the channel list
+  - we can't really reconstruct the existence of continue, and inferring the channels to write is tricky
+- that leaves left side reconstruction
+  - finish and mutate should be inserted eagerly, this amounts to checking at each type-check step if either rule applies to anything in the context and applying them
+  - start should be inserted lazily, this is more complicated. essentially for any attempt at communication on the left, if the type is an up arrow than we want to do a start then recheck the type
+
 # Done
 - add cases to type ast for new types
 - add cases to parser for new types
