@@ -13,6 +13,11 @@ module M = Core.Map
 let error = ErrorMsg.error ErrorMsg.Type
 (* let linkerror = ErrorMsg.error ErrorMsg.Link;; *)
 
+let fresh_name =
+  let counter = ref 0 in
+  let next () = counter := !counter + 1; "$" ^ (string_of_int !counter) in
+  next
+
 (*********************)
 (* Validity of types *)
 (*********************)
@@ -439,6 +444,18 @@ and check_exp trace env ctx exp zc ext (cont : A.cont) =
         match A.lookup_expdec env f with
           None -> E.error_undeclared (f) (exp.A.st_data)
         | Some (ids',ps',delta',(x',a')) ->
+          let ids =
+            (* Infer ids from channels if possible *)
+            if List.length ids = 0 && List.length xs = List.length ids' then
+              List.map (fun x -> let (_,_,id) = find_tp x ctx (exp.A.st_data) in id) xs
+            else
+              ids
+          in
+          (* fill in id if not present *)
+          let id = match id with
+            | Some id -> id
+            | None -> fresh_name ()
+          in
           if has_chan x ctx || x = (fst zc) then
             error (exp.A.st_data) ("variable " ^ x ^ " is not fresh")
           else if List.mem id ctx.A.idnames then
@@ -462,6 +479,13 @@ and check_exp trace env ctx exp zc ext (cont : A.cont) =
         match A.lookup_expdec env f with
           None -> E.error_undeclared (f) (exp.A.st_data)
         | Some (ids',ps',delta',(x',a')) ->
+          let ids =
+            (* Infer ids from channels if possible *)
+            if List.length ids = 0 && List.length xs = List.length ids' then
+              List.map (fun x -> let (_,_,id) = find_tp x ctx (exp.A.st_data) in id) xs
+            else
+              ids
+          in
           if List.length ids <> List.length ids' then
             error (exp.A.st_data) ("mismatched number of ids: expected " ^ PP.pp_channames ids' ^ ", got " ^ PP.pp_channames ids)
           else if List.length ps <> List.length ps' then
@@ -568,6 +592,7 @@ and check_exp trace env ctx exp zc ext (cont : A.cont) =
             else (* the type c of z must be tensor *)
               match c with
                 A.TpName(v) -> check_exp' trace env ctx exp (z,A.expd_tp env v) ext cont
+              | A.ExistsId(id,a) -> check_exp' trace env ctx {exp with A.st_structure = A.SendId(x,id',exp)} zc ext cont
               | A.Tensor((a,p,id),b) ->
                 (* "subtype is sufficient with subsync types" *)
                 if not (eqtp env a' a) then
@@ -590,6 +615,7 @@ and check_exp trace env ctx exp zc ext (cont : A.cont) =
             match d with
               A.TpName(v) -> check_exp' trace env (update_tp env x ((A.expd_tp env v),q,idx) ctx) exp zc ext cont
             | A.Up(k, d') when !F.syntax = F.Implicit -> check_exp' trace env (update_tp env x (A.proto_subst_perm q k d',q,idx) ctx) exp zc ext cont
+            | A.ForallId(id,a) -> check_exp' trace env ctx {exp with A.st_structure = A.SendId(x,id',exp)} zc ext cont
             | A.Lolli((a,p,id),b) ->
               (* "subtype is sufficient with subsync types" *)
               if not (eqtp env a' a) then
@@ -621,6 +647,7 @@ and check_exp trace env ctx exp zc ext (cont : A.cont) =
           else (* the type c of z must be lolli *)
             match c with
               A.TpName(v) -> check_exp' trace env ctx exp (z,A.expd_tp env v) ext cont
+            | A.ForallId(id, a) -> check_exp' trace env ctx {exp with A.st_structure = A.RecvId(x, fresh_name (), exp)} zc ext cont
             | A.Lolli(a,b) ->
               check_exp' trace env (add_chan env (y,a) ctx) cont_p (z,b) ext cont
             | _ ->
@@ -631,6 +658,7 @@ and check_exp trace env ctx exp zc ext (cont : A.cont) =
           match d with
             A.TpName(v) -> check_exp' trace env (update_tp env x ((A.expd_tp env v),q,idx) ctx) exp zc ext cont
           | A.Up(k, d') when !F.syntax = F.Implicit -> check_exp' trace env (update_tp env x (A.proto_subst_perm q k d',q,idx) ctx) exp zc ext cont
+          | A.ExistsId(id, a) -> check_exp' trace env ctx {exp with A.st_structure = A.RecvId(x, fresh_name (), exp)} zc ext cont
           | A.Tensor((a,p,id),b) ->
             check_exp' trace env (add_chan env (y,(a,p,id)) (update_tp env x (b,q,idx) ctx)) cont_p zc ext cont
           | _ ->

@@ -5,15 +5,6 @@
 - probably a ton of uniqueness checks
 - handle products of variables
 
-- check that you never send a down arrow (including double down) or use it as a parameter to a process definition (makes it so they can't be applied eagerly)
-- right side doesn't get reconstructed
-  - we can in theory eagerly create mut blocks, but I think that will feel weird
-  - we cannot eagerly create immut blocks without significant futher inference for the channel list
-  - we can't really reconstruct the existence of continue, and inferring the channels to write is tricky
-- that leaves left side reconstruction
-  - finish and mutate should be inserted eagerly, this amounts to checking at each type-check step if either rule applies to anything in the context and applying them
-  - start should be inserted lazily, this is more complicated. essentially for any attempt at communication on the left, if the type is an up arrow than we want to do a start then recheck the type
-
 # Done
 - add cases to type ast for new types
 - add cases to parser for new types
@@ -36,3 +27,22 @@
 - changes to start (new syntax + has to match)
 - changes to /\\R rule (new syntax for immut blocks, new variable in V, multiply unlocked context + continuation context by this amount, acts like a forall (also change /\\L))
 - don't multiply in tensor and lolli
+
+- check that you never send a down arrow (including double down) or use it as a parameter to a process definition (makes it so they can't be applied eagerly)
+- right side doesn't get reconstructed
+  - we can in theory eagerly create mut blocks, but I think that will feel weird
+  - we cannot eagerly create immut blocks without significant futher inference for the channel list
+  - we can't really reconstruct the existence of continue, and inferring the channels to write is tricky
+- that leaves left side reconstruction
+  - finish and mutate should be inserted eagerly, this amounts to checking at each type-check step if either rule applies to anything in the context and applying them
+  - start should be inserted lazily, this is more complicated. essentially for any attempt at communication on the left, if the type is an up arrow than we want to do a start then recheck the type
+- infer necessary id when *sending* to ?a. <A, p, a> pattern and dual
+- infer necessary id when *receiving* from ?a. <A, p, a> pattern and dual
+  - give id a fresh identifier that I suppose then never gets exposed externally
+- infer necessary id for *newly spawned* channel 
+  - again give it a fresh identifier that can't be explicitly mentioned
+  - requires changing the parser
+- infer necessary id for *arguments* to a spawned channel
+  - requires assumption that the id parameters are exactly the ids of the channel arguments
+- infer permissions in similar settings?
+  - probably not, it doesn't come up as much and is generally more complicated

@@ -89,7 +89,7 @@ and 'a st_aug_expr =
 and 'a st_expr =
   (* judgmental constructs *)
   | Fwd of chan * chan                                      (* x <- y *)
-  | Spawn of idname * chan * expname *
+  | Spawn of idname option * chan * expname *
              idname list * perm list * chan list *
              'a st_aug_expr                                 (* {a}, x <- f[a]{p} <- [y] ; Q *)
   | ExpName of chan * expname * idname list *

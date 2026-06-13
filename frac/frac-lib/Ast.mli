@@ -36,7 +36,7 @@ and choices = (label * proto) list
 and 'a st_aug_expr = { st_structure : 'a st_expr; st_data : 'a; }
 and 'a st_expr =
     Fwd of chan * chan
-  | Spawn of idname * chan * expname * idname list * perm list * chan list * 'a st_aug_expr
+  | Spawn of idname option * chan * expname * idname list * perm list * chan list * 'a st_aug_expr
   | ExpName of chan * expname * idname list * perm list * chan list
   | Lab of chan * label * 'a st_aug_expr
   | Case of chan * 'a branches

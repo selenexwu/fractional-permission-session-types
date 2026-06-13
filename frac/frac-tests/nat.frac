@@ -98,6 +98,7 @@ proc lte[n1i,n2i] : (n1 : <mut_nat,*,n1i>), (n2 : <mut_nat,*,n2i>) |- (b : bool)
           wait n2;
           {di}, d <- drop_mut[n1i] n1; wait d;
           b.false; close b
-      | succ => b <- lte[n1i,n2i] n1 n2
+      | succ =>
+          b <- lte[n1i,n2i] n1 n2
       )
   )

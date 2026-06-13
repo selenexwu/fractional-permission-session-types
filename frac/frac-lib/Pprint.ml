@@ -145,7 +145,10 @@ let pp_printable x =
 let rec pp_exp env i exp = match exp with
     A.Fwd(x,y) -> pp_chan x ^ " <-> " ^ pp_chan y
   | A.Spawn(a,x,f,ids,ps,xs,q) -> (* exp = x <- f <- xs ; q *)
-      "{" ^ a ^ "}, " ^ pp_chan x ^ " <- " ^ f ^ "[" ^ pp_list ids ^ "]{" ^ pp_perms ps ^ "} " ^ pp_argnames env xs ^ " ;\n"
+      (match a with
+        | None -> ""
+        | Some(a) -> "{" ^ a ^ "}, ") ^
+       pp_chan x ^ " <- " ^ f ^ "[" ^ pp_list ids ^ "]{" ^ pp_perms ps ^ "} " ^ pp_argnames env xs ^ " ;\n"
       ^ pp_exp_indent env i q
   | A.ExpName(x,f,ids,ps,xs) -> pp_chan x ^ " <- " ^ f ^ "[" ^ pp_list ids ^ "]{" ^ pp_perms ps ^ "} " ^ pp_argnames env xs
   | A.Lab(x,k,p) -> pp_chan x ^ "." ^ k ^ " ;\n" ^ pp_exp_indent env i p
@@ -204,7 +207,10 @@ and pp_argnames env args = match args with
 let pp_exp_prefix exp = match exp with
     A.Fwd(x,y) -> pp_chan x ^ " <-> " ^ pp_chan y
   | A.Spawn(a,x,f,ids,ps,xs,_q) -> (* exp = x <- f <- xs ; q *)
-      "{" ^ a ^ "}, " ^ pp_chan x ^ " <- " ^ f ^ "[" ^ pp_list ids ^ "][" ^ pp_perms ps ^ "] <- " ^ pp_argnames () xs ^ " ; ..."
+    (match a with
+     | None -> ""
+     | Some(a) -> "{" ^ a ^ "}, ") ^
+    pp_chan x ^ " <- " ^ f ^ "[" ^ pp_list ids ^ "][" ^ pp_perms ps ^ "] <- " ^ pp_argnames () xs ^ " ; ..."
   | A.ExpName(x,f,ids,ps,xs) -> pp_chan x ^ " <- " ^ f ^ "[" ^ pp_list ids ^ "]{" ^ pp_perms ps ^ "} <- " ^ pp_argnames () xs
   | A.Lab(x,k,_p) -> pp_chan x ^ "." ^ k ^ " ; ..."
   | A.Case(x,_bs) -> "case " ^ pp_chan x ^ " ( ... )"

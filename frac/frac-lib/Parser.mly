@@ -120,8 +120,11 @@ perm_list:
     | { [] }
     | LBRACE; ids = separated_list(COMMA, perm); RBRACE { ids }
 
+%inline optional_perm:
+    | a = ioption(LBRACE; a = ID; RBRACE; COMMA {a}) {a}
+
 st:
-    |  LBRACE; a = ID; RBRACE; COMMA; x = ID; LARROW; f = ID; ids = id_list; ps = perm_list xs = list(ID); SEMI; p = st  { {st_structure = Ast.Spawn(a, x, f, ids, ps, xs, p); st_data = Ast.make_ext $startpos $endpos(xs) } }
+    |  a = optional_perm; x = ID; LARROW; f = ID; ids = id_list; ps = perm_list xs = list(ID); SEMI; p = st              { {st_structure = Ast.Spawn(a, x, f, ids, ps, xs, p); st_data = Ast.make_ext $startpos $endpos(xs) } }
     |  x = ID; LARROW; f = ID; ids = id_list; ps = perm_list; xs = list(ID)                                              { {st_structure = Ast.ExpName(x, f, ids, ps, xs); st_data = Ast.make_ext $startpos $endpos } }
     |  x = ID; FORWARD; y = ID                                                                                           { {st_structure = Ast.Fwd(x,y); st_data = Ast.make_ext $startpos $endpos } }
     |  SEND; x = ID; w = ID; SEMI; p = st                                                                                { {st_structure = Ast.Send(x,w,p); st_data = Ast.make_ext $startpos $endpos(w) } }
