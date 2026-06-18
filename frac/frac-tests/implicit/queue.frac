@@ -36,18 +36,15 @@ proc empty : . |- (q : queue) =
   }
 
 proc elem[xi,ti] : (x : <A,*,xi>), (t : <queue,*,ti>) |- (q : queue) =
-  share t;
   immut t { p =>
     case q (
       ins => mut {
-        own t;
         y <- recv q;
         t.ins;
         send t y;
         q <- elem x t
       }
     | del => mut {
-        own t;
         q.some;
         send q x;
         q <-> t
@@ -61,3 +58,21 @@ proc elem[xi,ti] : (x : <A,*,xi>), (t : <queue,*,ti>) |- (q : queue) =
     )
   }
 
+proc newA : . |- (a : A) = close a
+
+proc main : . |- (out : queue) =
+    q <- empty;
+    e1 <- newA;
+    q.ins;
+    send q e1;
+    q1, q2 <- split q;
+
+    q1.len; q2.len;
+    n1 <- recv q1;
+    n2 <- recv q2;
+
+    q <- merge q1, q2;
+    e2 <- newA;
+    q.ins;
+    send q e2;
+    abort

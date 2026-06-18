@@ -43,11 +43,9 @@ proc leaf : . |- (t : tree) =
   }
 
 proc left_node[xi,t1i,t2i] : (x : <A, *, xi>), (t1 : <tree, *, t1i>), (t2 : <tree, *, t2i>) |- (t : tree) =
-  share t1; share t2;
   immut t1 t2 { p =>
     case t (
       ins => mut {
-        own t1; own t2;
         y <- recv t;
         t1.ins;
         send t1 y;
@@ -66,11 +64,9 @@ proc left_node[xi,t1i,t2i] : (x : <A, *, xi>), (t1 : <tree, *, t1i>), (t2 : <tre
   }
 
 proc right_node[xi,t1i,t2i] : (x : <A, *, xi>), (t1 : <tree, *, t1i>), (t2 : <tree, *, t2i>) |- (t : tree) =
-  share t1; share t2;
   immut t1 t2 { p =>
     case t (
       ins => mut {
-        own t1; own t2;
         y <- recv t;
         t2.ins;
         send t2 y;

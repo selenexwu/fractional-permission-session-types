@@ -5,8 +5,6 @@
 - probably a ton of uniqueness checks
 - handle products of variables
 
-- implicitify auction, mapreduce, counter, bin_counter
-
 # Done
 - add cases to type ast for new types
 - add cases to parser for new types

@@ -36,17 +36,14 @@ proc empty : . |- (q : stack) =
   }
 
 proc elem[xi,ti] : (x : <A,*,xi>), (t : <stack,*,ti>) |- (q : stack) =
-  share t;
   immut t { p =>
     case q (
       ins => mut {
-        own t;
         y <- recv q;
         u <- elem x t;
         q <- elem y u
       }
     | del => mut {
-        own t;
         q.some;
         send q x;
         q <-> t

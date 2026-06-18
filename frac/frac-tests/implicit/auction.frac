@@ -22,11 +22,9 @@ proc zero : . |- (n : nat) =
   }
 
 proc succ[n0i] : (n0 : <nat, *, n0i>) |- (n : nat) =
-  share n0;
   immut n0 { p =>
     case n (
       val => mut {
-        own n0;
         n.succ;
         n0.val;
         n <-> n0
@@ -91,14 +89,12 @@ proc running_auction[mbi,wi,nbi] : (max_bid : <nat,*,mbi>), (winner : <nat,*,wi>
       d <- drop_nat max_bid; wait d;
       auc <- done_auction winner
   | succ =>
-      share max_bid; share winner;
       immut max_bid winner { p =>
         auc.running;
         max_bid.dup; mb1 <- recv max_bid;
         send auc mb1;
         case auc (
           bid => mut {
-            own max_bid; own winner;
             id <- recv auc;
             amount <- recv auc;
             max_bid.dup; mb2 <- recv max_bid;
@@ -125,7 +121,6 @@ proc running_auction[mbi,wi,nbi] : (max_bid : <nat,*,mbi>), (winner : <nat,*,wi>
   )
 
 proc done_auction[wi] : (winner : <nat, *, wi>) |- (auc : auction) =
-  share winner;
   immut winner { p =>
     auc.done;
     winner.dup; w1 <- recv winner;

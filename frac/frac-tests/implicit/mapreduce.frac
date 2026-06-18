@@ -21,11 +21,9 @@ proc zero : . |- (n : nat) =
   }
 
 proc succ[n0i] : (n0 : <nat, *, n0i>) |- (n : nat) =
-  share n0;
   immut n0 { p =>
     case n (
       val => mut {
-        own n0;
         n.succ;
         n0.val;
         n <-> n0
@@ -62,11 +60,9 @@ proc add_mut[n1i,n2i] : (n1 : <mut_nat,*,n1i>), (n2 : <mut_nat,*,n2i>) |- (n : m
 
 
 proc add[n1i,n2i] : (n1 : <nat,*,n1i>), (n2 : <nat,*,n2i>) |- (n : nat) =
-  share n1; share n2;
   immut n1 n2 { p =>
     case n (
       val => mut {
-        own n1; own n2;
         n1.val;
         n2.val;
         n <- add_mut n1 n2
@@ -94,11 +90,9 @@ type worker = /\k. &{
 }
 
 proc worker[ni] : (n : <nat, *, ni>) |- (out : worker) =
-  share n;
   immut n { p =>
     case out (
       submit => mut {
-        own n;
         work <- recv out;
         wait work;
         res <- result;
@@ -128,11 +122,9 @@ proc coordinator[k1i,k2i,k3i] :
   (k2 : <worker,*,k2i>),
   (k3 : <worker,*,k3i>)
 |- (out : worker) =
-  share k1; share k2; share k3;
   immut k1 k2 k3 { p =>
     case out (
       submit => mut {
-        own k1; own k2; own k3;
         work <- recv out;
         sw <- partition_work work;
         w1 <- recv sw;

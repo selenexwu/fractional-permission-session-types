@@ -72,3 +72,21 @@ proc elem[xi,ti] : (x : <A,*,xi>), (t : <queue,*,ti>) |- (q : queue) =
     )
   }
 
+proc newA : . |- (a : A) = close a
+
+proc main : . |- (out : queue) =
+    {qi}, q <- empty;
+    {e1i}, e1 <- newA;
+    start q{*}; q.ins; mutate q;
+    send q {e1i}; send q e1;
+    share q; q1, q2 <- split q;
+    start q1{0.5}; start q2{0.5};
+    q1.len; q2.len;
+    {n1i} <- recv q1; n1 <- recv q1;
+    {n2i} <- recv q2; n2 <- recv q2;
+    finish q1; finish q2;
+    q <- merge q1, q2; own q;
+    {e2i}, e2 <- newA;
+    start q{*}; q.ins; mutate q;
+    send q {e2i}; send q e2;
+    abort

@@ -71,11 +71,9 @@ proc add_mut[b0i,b1i] : (b0 : <mut_bin, *, b0i>), (b1 : <mut_bin, *, b1i>) |- (b
   )
 
 proc add[b0i,b1i] : (b0 : <bin, *, b0i>), (b1 : <bin, *, b1i>) |- (b : bin) =
-  share b0; share b1;
   immut b0 b1 { p =>
     case b (
       val => mut {
-        own b0; own b1;
         b0.val;
         b1.val;
         b <- add_mut b0 b1

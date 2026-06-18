@@ -20,11 +20,9 @@ proc zero : . |- (n : nat) =
   }
 
 proc succ[n0i] : (n0 : <nat, *, n0i>) |- (n : nat) =
-  share n0;
   immut n0 { p =>
     case n (
       val => mut {
-        own n0;
         n.succ;
         n0.val;
         n <-> n0
@@ -61,11 +59,9 @@ proc add_mut[n1i,n2i] : (n1 : <mut_nat,*,n1i>), (n2 : <mut_nat,*,n2i>) |- (n : m
 
 
 proc add[n1i,n2i] : (n1 : <nat,*,n1i>), (n2 : <nat,*,n2i>) |- (n : nat) =
-  share n1; share n2;
   immut n1 n2 { p =>
     case n (
       val => mut {
-        own n1; own n2;
         n1.val;
         n2.val;
         n <- add_mut n1 n2

@@ -10,7 +10,6 @@ proc zero : . |- (n : nat) =
   }
 
 proc succ[n0i] : (n0 : <nat, *, n0i>) |- (n : nat) =
-  share n0;
   immut n0 { p =>
     n.succ;
     d <- dup{p} n0;

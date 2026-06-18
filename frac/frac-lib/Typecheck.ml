@@ -18,6 +18,17 @@ let fresh_name =
   let next () = counter := !counter + 1; "$" ^ (string_of_int !counter) in
   next
 
+let rec list_first_diff l1 l2 =
+  match (l1, l2) with
+  | [], [] ->
+      (None, None)
+  | [], h2 :: t2 ->
+      (None, Some h2)
+  | h1 :: t2, [] ->
+      (Some h1, None)
+  | h1 :: t1, h2 :: t2 ->
+      if h1 <> h2 then (Some h1, Some h2) else list_first_diff t1 t2
+
 (*********************)
 (* Validity of types *)
 (*********************)
@@ -386,7 +397,7 @@ and check_exp trace env ctx exp zc ext (cont : A.cont) =
   (* eagerly start and mutate channels where this is possible *)
   match
     match !F.syntax with
-    | F.Explicit -> None
+    | F.Explicit -> None (* skip in explicit syntax *)
     | F.Implicit ->
       List.find_opt
         (fun (_, (a, p, _)) ->
@@ -715,9 +726,14 @@ and check_exp trace env ctx exp zc ext (cont : A.cont) =
                 | A.Up _ -> p <> A.Owned && List.mem id owned
                 | _ -> false) delta
             in
-            if (List.sort String.compare (List.map fst delta')) <> (List.sort String.compare ys) then
-              error (exp.A.st_data) ("must name all unlocked channels (" ^ PP.pp_channames (List.map fst delta') ^ ") when entering immut block")
-            else
+            let unlocked_channel_names = List.sort String.compare (List.map fst delta') in
+            let named_channels = List.sort String.compare ys in
+            match list_first_diff unlocked_channel_names named_channels with
+            | _, Some y -> (match !F.syntax with
+              | F.Explicit -> error (exp.A.st_data) ("channel " ^ y ^ " named in immut block but is locked")
+              | F.Implicit -> check_exp' trace env ctx {exp with A.st_structure = A.Share(y,exp)} zc ext cont)
+            | Some _, None -> error (exp.A.st_data) ("must name all unlocked channels (" ^ PP.pp_channames unlocked_channel_names ^ ") when entering immut block")
+            | None, None ->
               let delta' = List.map (fun (x,(a,p,id)) -> (x,(a,A.perm_mult p (A.perm_var p'),id))) delta' in
               let ctx' = { A.idnames = idnames ; A.permnames = p' :: permnames ; A.owned = [] ; A.locked = ldelta ; A.linear = delta' } in
               let (z,c) = zc in
@@ -774,7 +790,14 @@ and check_exp trace env ctx exp zc ext (cont : A.cont) =
           let (z,c) = zc in
           match c with
           | A.TpName(v) -> check_exp' trace env ctx exp (z,A.expd_tp env v) ext cont
-          | A.DoubleDown(a) -> check_exp' trace env ctx' cont_p (z, A.proto_subst_perm (A.perm_const Q.one) pc a) ext None
+          | A.DoubleDown(a) ->
+            let cont_p' = match !F.syntax with
+            | F.Explicit -> cont_p
+            | F.Implicit ->
+              let channels_to_own = List.filter_map (fun (x, (_,p,_)) -> if A.perm_eq p (A.perm_const Q.one) then Some x else None) delta' in
+              List.fold_left (fun acc x -> {acc with A.st_structure = A.Own(x, acc)}) cont_p channels_to_own
+              in
+              check_exp' trace env ctx' cont_p' (z, A.proto_subst_perm (A.perm_const Q.one) pc a) ext None
           | _ ->
             error (exp.A.st_data) ("invalid type of " ^ z ^
                                    ", expected double down arrow, found: " ^ PP.pp_proto env c)
@@ -836,7 +859,11 @@ and check_exp trace env ctx exp zc ext (cont : A.cont) =
         else (* the type a of x must be /\ *)
           let (a,p,id) = find_tp x ctx (exp.A.st_data) in
           match p with
-          | A.Owned -> error (exp.A.st_data) ("split owned channel " ^ x)
+          | A.Owned -> (
+              match !F.syntax with
+              | F.Explicit -> error (exp.A.st_data) ("split owned channel " ^ x)
+              | F.Implicit -> check_exp' trace env ctx {exp with A.st_structure=A.Share(x, exp)} zc ext cont
+            )
           | A.Fractional _ ->
             let p' = A.perm_mult p (A.perm_const (Q.of_ints 1 2)) in
             let ctx' = remove_chan x ctx in
@@ -878,11 +905,25 @@ and check_exp trace env ctx exp zc ext (cont : A.cont) =
               let ctx' = remove_chan x2 ctx' in
               let ctx' = add_chan env (x, (a1,p',id1)) ctx' in
               match a1 with
-              | A.TpName(v) -> check_exp' trace env (update_tp env x1 ((A.expd_tp env v),p1,id1) ctx) exp zc ext cont
-              | A.Up(_) -> check_exp' trace env ctx' cont_p zc ext cont
+              | A.TpName v ->
+                  check_exp' trace env
+                    (update_tp env x1 (A.expd_tp env v, p1, id1) ctx)
+                    exp zc ext cont
+              | A.Up _ ->
+                  let cont_p' =
+                    match !F.syntax with
+                    | F.Explicit ->
+                        cont_p
+                    | F.Implicit ->
+                        if A.perm_eq p' (A.perm_const Q.one) then
+                          {cont_p with A.st_structure = A.Own (x, cont_p)}
+                        else cont_p
+                  in
+                  check_exp' trace env ctx' cont_p' zc ext cont
               | _ ->
-                error (exp.A.st_data) ("invalid type of " ^ x ^
-                                       ", expected up arrow, found: " ^ PP.pp_proto env a1)
+                  error exp.A.st_data
+                    ( "invalid type of " ^ x ^ ", expected up arrow, found: "
+                    ^ PP.pp_proto env a1 )
       end
     | A.Share(x,cont_p) ->
       begin
