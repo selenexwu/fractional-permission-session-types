@@ -27,7 +27,9 @@ proc succ[n0i] : (n0 : <nat, *, n0i>) |- (n : nat) =
       val => mut {
         own n0;
         n.succ;
-        start n0{*}; n0.val; mutate n0;
+        start n0{*};
+        n0.val;
+        mutate n0;
         n <-> n0
       }
     | dup =>

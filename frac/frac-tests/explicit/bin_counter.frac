@@ -59,7 +59,9 @@ proc add_mut[b0i,b1i] : (b0 : <mut_bin, *, b0i>), (b1 : <mut_bin, *, b1i>) |- (b
       | b1 =>
           b.b0;
           {ci}, c <- one;
-          start c{*}; c.val; mutate c;
+          start c{*};
+          c.val;
+          mutate c;
           {b2i}, b2 <- add_mut[b1i,ci] b1 c;
           b <- add_mut[b0i,b2i] b0 b2
       | e =>
@@ -73,22 +75,32 @@ proc add_mut[b0i,b1i] : (b0 : <mut_bin, *, b0i>), (b1 : <mut_bin, *, b1i>) |- (b
   )
 
 proc add[b0i,b1i] : (b0 : <bin, *, b0i>), (b1 : <bin, *, b1i>) |- (b : bin) =
-  share b0; share b1;
+  share b0;
+  share b1;
   immut b0 b1 { p =>
     case b (
       val => mut {
-        own b0; own b1;
-        start b0{*}; b0.val; mutate b0;
-        start b1{*}; b1.val; mutate b1;
+        own b0;
+        own b1;
+        start b0{*};
+        b0.val;
+        mutate b0;
+        start b1{*};
+        b1.val;
+        mutate b1;
         b <- add_mut[b0i,b1i] b0 b1
       }
     | dup =>
-        start b0{p}; b0.dup;
+        start b0{p};
+        b0.dup;
         {b2i} <- recv b0;
-        b2 <- recv b0; finish b0;
-        start b1{p}; b1.dup;
+        b2 <- recv b0;
+        finish b0;
+        start b1{p};
+        b1.dup;
         {b3i} <- recv b1;
-        b3 <- recv b1; finish b1;
+        b3 <- recv b1;
+        finish b1;
         {si}, s <- add[b2i,b3i] b2 b3;
         send b {si};
         send b s;
