@@ -56,3 +56,20 @@ proc elem[xi,ti] : (x : <A,*,xi>), (t : <stack,*,ti>) |- (q : stack) =
         continue t
     )
   }
+
+proc newA : . |- (a : A) = close a
+
+proc main : . |- (out : stack) =
+    q <- empty;
+    e1 <- newA;
+    q.ins;
+    send q e1;
+    q1, q2 <- split q;
+    q1.len; q2.len;
+    n1 <- recv q1;
+    n2 <- recv q2;
+    q <- merge q1, q2;
+    e2 <- newA;
+    q.ins;
+    send q e2;
+    abort

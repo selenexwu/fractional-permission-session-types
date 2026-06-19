@@ -794,7 +794,7 @@ and check_exp trace env ctx exp zc ext (cont : A.cont) =
             let cont_p' = match !F.syntax with
             | F.Explicit -> cont_p
             | F.Implicit ->
-              let channels_to_own = List.filter_map (fun (x, (_,p,_)) -> if A.perm_eq p (A.perm_const Q.one) then Some x else None) delta' in
+              let channels_to_own = List.filter_map (fun (x, (_,p,a)) -> if A.perm_eq p (A.perm_const Q.one) && List.mem a ctx'.A.owned then Some x else None) delta' in
               List.fold_left (fun acc x -> {acc with A.st_structure = A.Own(x, acc)}) cont_p channels_to_own
               in
               check_exp' trace env ctx' cont_p' (z, A.proto_subst_perm (A.perm_const Q.one) pc a) ext None
@@ -915,7 +915,7 @@ and check_exp trace env ctx exp zc ext (cont : A.cont) =
                     | F.Explicit ->
                         cont_p
                     | F.Implicit ->
-                        if A.perm_eq p' (A.perm_const Q.one) then
+                        if A.perm_eq p' (A.perm_const Q.one) && List.mem id1 ctx.A.owned then
                           {cont_p with A.st_structure = A.Own (x, cont_p)}
                         else cont_p
                   in
