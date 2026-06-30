@@ -1,0 +1,395 @@
+(* Natural Numbers *)
+type nat = /\ k. &{
+  val: \\// mut_nat,
+  dup: ?a. <nat, *, a> * \/ nat
+}
+
+type mut_nat = +{zero: 1, succ: mut_nat}
+
+proc zero : . |- (n : nat) =
+  immut { p =>
+    case n (
+      val => mut {
+        n.zero;
+        close n
+      }
+    | dup =>
+        n1 <- zero;
+        send n n1;
+        continue
+    )
+  }
+
+proc succ[n0i] : (n0 : <nat, *, n0i>) |- (n : nat) =
+  immut n0 { p =>
+    case n (
+      val => mut {
+        n.succ;
+        n0.val;
+        n <-> n0
+      }
+    | dup =>
+        n0.dup;
+        n1 <- recv n0;
+        n2 <- succ n1;
+        send n n2;
+        continue n0
+    )
+  }
+
+proc drop_mut[ni] : (n : <mut_nat, *, ni>) |- (d : 1) =
+  case n (
+    zero =>
+      wait n;
+      close d
+  | succ =>
+      d <- drop_mut n
+  )
+
+proc drop[ni] : (n : <nat, *, ni>) |- (d : 1) = n.val; d <- drop_mut n
+
+proc add_mut[n1i,n2i] : (n1 : <mut_nat,*,n1i>), (n2 : <mut_nat,*,n2i>) |- (n : mut_nat) =
+  case n1 (
+    zero =>
+      wait n1;
+      n <-> n2
+  | succ =>
+      n.succ;
+      n <- add_mut n1 n2
+  )
+
+
+proc add[n1i,n2i] : (n1 : <nat,*,n1i>), (n2 : <nat,*,n2i>) |- (n : nat) =
+  immut n1 n2 { p =>
+    case n (
+      val => mut {
+        n1.val;
+        n2.val;
+        n <- add_mut n1 n2
+      }
+    | dup =>
+        n1.dup; n3 <- recv n1;
+        n2.dup; n4 <- recv n2;
+        d <- add n3 n4;
+        send n d;
+        continue n1 n2
+    )
+  }
+
+type bool = +{true: 1, false: 1}
+
+proc bool_true : . |- (b : bool) = b.true; close b
+proc bool_false : . |- (b : bool) = b.false; close b
+
+proc lte[n1i,n2i] : (n1 : <mut_nat,*,n1i>), (n2 : <mut_nat,*,n2i>) |- (b : bool) =
+  case n1 (
+    zero =>
+      wait n1;
+      d <- drop_mut n2; wait d;
+      b.true; close b
+  | succ =>
+      case n2 (
+        zero =>
+          wait n2;
+          d <- drop_mut n1; wait d;
+          b.false; close b
+      | succ =>
+          b <- lte n1 n2
+      )
+  )
+
+(* Balance Factor *)
+
+type balance_factor = +{
+  m_two: 1,
+  m_one: 1,
+  zero: 1,
+  p_one: 1,
+  p_two: 1
+}
+
+proc bf_m_two : . |- (bf : balance_factor) = bf.m_two; close bf
+proc bf_m_one : . |- (bf : balance_factor) = bf.m_one; close bf
+proc bf_zero : . |- (bf : balance_factor) = bf.zero; close bf
+proc bf_p_one : . |- (bf : balance_factor) = bf.p_one; close bf
+proc bf_p_two : . |- (bf : balance_factor) = bf.p_two; close bf
+
+proc bf_inc[bfi] : (bf : <balance_factor, *, bfi>) |- (out : balance_factor) =
+  case bf (
+    m_two => wait bf; out.m_one; close out
+  | m_one => wait bf; out.zero; close out
+  | zero => wait bf; out.p_one; close out
+  | p_one => wait bf; out.p_two; close out
+  | p_two => wait bf; out.p_two; close out
+  )
+
+proc bf_dec[bfi] : (bf : <balance_factor, *, bfi>) |- (out : balance_factor) =
+  case bf (
+    m_two => wait bf; out.m_two; close out
+  | m_one => wait bf; out.m_two; close out
+  | zero => wait bf; out.m_one; close out
+  | p_one => wait bf; out.zero; close out
+  | p_two => wait bf; out.p_one; close out
+  )
+
+(* Trees *)
+
+type tree = /\k. &{
+  free: \\// 1,
+  explode: \\// +{leaf: 1, inner: ?n. <nat, *, n> * ?bf. <balance_factor, *, bf> * ?t1. <tree, *, t1> * ?t2. <tree, *, t2> * 1},
+  ins: \\// !n. <nat, *, n> -o tree,
+  find: !n. <nat, *, n> -o ?b. <bool, *, b> * \/ tree
+}
+
+proc leaf : . |- (t : tree) =
+immut { p => 
+  case t (
+    free => mut { close t }
+  | explode => mut { t.leaf; close t }
+  | ins => mut {
+      n <- recv t;
+      bf <- bf_zero;
+      t1 <- leaf;
+      t2 <- leaf;
+      t <- inner n bf t1 t2
+    }
+  | find =>
+      n <- recv t;
+      d <- drop n;
+      wait d;
+      b <- bool_false;
+      send t b;
+      continue
+  )
+}
+
+proc inner[ni,bfi,t1i,t2i] : (n : <nat, *, ni>), (bf : <balance_factor, *, bfi>), (t1 : <tree, *, t1i>), (t2 : <tree, *, t2i>) |- (t : tree) =
+immut n t1 t2 { p =>
+  case t (
+    free => mut {
+      d <- drop n;
+      wait d;
+      t1.free;
+      wait t1;
+      t2.free;
+      wait t2;
+      case bf (
+        m_two => wait bf; close t
+      | m_one => wait bf; close t
+      | zero => wait bf; close t
+      | p_one => wait bf; close t
+      | p_two => wait bf; close t
+      )
+    }
+  | explode => mut {
+      t.inner;
+      send t n;
+      send t bf;
+      send t t1;
+      send t t2;
+      close t
+    }
+  | ins => mut {
+      n1 <- recv t;
+      n1.dup;
+      n1d <- recv n1;
+      n1d.val;
+      n.dup;
+      nd <- recv n;
+      nd.val;
+      b <- lte n1d nd;
+      case b (
+        true => (* send it left *)
+          wait b;
+          t1.ins;
+          send t1 n1;
+
+          bf <- bf_dec bf;
+          me <- inner n bf t1 t2;
+          t <- rebalance me
+      | false => (* send it right *)
+          wait b;
+          t2.ins;
+          send t2 n1;
+
+          bf <- bf_inc bf;
+          me <- inner n bf t1 t2;
+          t <- rebalance me
+      )
+    }
+  | find =>
+      n1 <- recv t;
+      n1.dup;
+      n1d <- recv n1;
+      n1d.val;
+      n.dup;
+      nd <- recv n;
+      nd.val;
+      b1 <- lte n1d nd;
+      case b1 (
+        true =>
+          wait b1;
+          n1.dup;
+          n1d <- recv n1;
+          n1d.val;
+          n.dup;
+          nd <- recv n;
+          nd.val;
+          b2 <- lte nd n1d;
+          case b2 (
+            true => (* equal to me *)
+              wait b2;
+              d <- drop n1;
+              wait d;
+              b <- bool_true;
+              send t b;
+              continue n t1 t2
+          | false => (* strictly less than me *)
+              wait b2;
+              t1.find;
+              send t1 n1;
+              b <- recv t1;
+              send t b;
+              continue n t1 t2
+          )
+      | false => (* strictly greater than me *)
+          wait b1;
+          t2.find;
+          send t2 n1;
+          b <- recv t2;
+          send t b;
+          continue n t1 t2
+      )
+  )
+}
+
+proc rebalance[ti] : (x : <tree, *, ti>) |- (out : tree) =
+  x.explode;
+  case x (
+    leaf => wait x; out <- leaf
+  | inner => 
+      n <- recv x;
+      bf <- recv x;
+      t1 <- recv x;
+      t2 <- recv x;
+      wait x;
+      case bf (
+      m_two =>
+          wait bf;
+          bf <- bf_m_two;
+          me <- inner n bf t1 t2;
+          out <- rotate_right me
+      | m_one =>
+          wait bf;
+          bf <- bf_m_one;
+          out <- inner n bf t1 t2
+      | zero => 
+          wait bf;
+          bf <- bf_m_one;
+          out <- inner n bf t1 t2
+      | p_one => 
+          wait bf;
+          bf <- bf_m_one;
+          out <- inner n bf t1 t2
+      | p_two => 
+          wait bf;
+          bf <- bf_m_two;
+          me <- inner n bf t1 t2;
+          out <- rotate_left me
+      )
+  )
+  
+proc rotate_left[ti] : (x : <tree, *, ti>) |- (out : tree) =
+  x.explode;
+  case x (
+    leaf => abort (* invalid for this to happen *)
+  | inner =>
+      nx <- recv x;
+      bfx <- recv x;
+      t1 <- recv x;
+      z <- recv x;
+      wait x;
+      z.explode;
+      case z (
+        leaf => abort (* invalid for this to happen *)
+      | inner => 
+          nz <- recv z;
+          bfz <- recv z;
+          t23 <- recv z;
+          t4 <- recv z;
+          wait z;
+
+          case bfz (
+            m_two => abort (* impossible *)
+          | m_one =>
+              wait bfz;
+              bfz <- bf_m_one;
+              z <- inner nz bfz t23 t4;
+              z <- rotate_right z;
+              x <- inner nx bfx t1 z;
+              out <- rotate_left x
+          | zero =>
+              wait bfz;
+              bfx <- bf_dec bfx;
+              bfz <- bf_m_one;
+              x <- inner nx bfx t1 t23;
+              out <- inner nz bfz x t4
+          | p_one =>
+              wait bfz;
+              bfx <- bf_dec bfx;
+              bfx <- bf_dec bfx;
+              bfz <- bf_zero;
+              x <- inner nx bfx t1 t23;
+              out <- inner nz bfz x t4
+          | p_two => abort (* impossible *)
+          )
+
+      )
+  )
+
+proc rotate_right[ti] : (x : <tree, *, ti>) |- (out : tree) =
+  x.explode;
+  case x (
+    leaf => abort (* invalid for this to happen *)
+  | inner =>
+      nx <- recv x;
+      bfx <- recv x;
+      t1 <- recv x;
+      z <- recv x;
+      wait x;
+      z.explode;
+      case z (
+        leaf => abort (* invalid for this to happen *)
+      | inner => 
+          nz <- recv z;
+          bfz <- recv z;
+          t23 <- recv z;
+          t4 <- recv z;
+          wait z;
+
+          case bfz (
+            m_two => abort (* impossible *)
+          | m_one =>
+              wait bfz;
+              bfx <- bf_inc bfx;
+              bfx <- bf_inc bfx;
+              bfz <- bf_zero;
+              x <- inner nx bfx t1 t23;
+              out <- inner nz bfz x t4
+          | zero =>
+              wait bfz;
+              bfx <- bf_inc bfx;
+              bfz <- bf_p_one;
+              x <- inner nx bfx t1 t23;
+              out <- inner nz bfz x t4
+          | p_one =>
+              wait bfz;
+              bfz <- bf_p_one;
+              z <- inner nz bfz t23 t4;
+              z <- rotate_left z;
+              x <- inner nx bfx t1 z;
+              out <- rotate_right x
+          | p_two => abort (* impossible *)
+          )
+      )
+  )

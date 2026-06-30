@@ -462,12 +462,13 @@ and check_exp trace env ctx exp zc ext (cont : A.cont) =
             else
               ids
           in
-          (* fill in id if not present *)
+          (* fill in id if not present and in implicit syntax *)
           let id = match id with
             | Some id -> id
-            | None -> fresh_name ()
+            | None when !F.syntax = F.Implicit -> fresh_name ()
+            | _ -> error (exp.A.st_data) ("spawning without id only allowed in implicit syntax")
           in
-          if has_chan x ctx || x = (fst zc) then
+          if (has_chan x ctx && not (List.mem x xs)) || x = (fst zc) then
             error (exp.A.st_data) ("variable " ^ x ^ " is not fresh")
           else if List.mem id ctx.A.idnames then
             error (exp.A.st_data) ("id " ^ id ^ " is not fresh")
@@ -603,7 +604,7 @@ and check_exp trace env ctx exp zc ext (cont : A.cont) =
             else (* the type c of z must be tensor *)
               match c with
                 A.TpName(v) -> check_exp' trace env ctx exp (z,A.expd_tp env v) ext cont
-              | A.ExistsId(id,a) -> check_exp' trace env ctx {exp with A.st_structure = A.SendId(x,id',exp)} zc ext cont
+              | A.ExistsId(id,a) when !F.syntax = F.Implicit -> check_exp' trace env ctx {exp with A.st_structure = A.SendId(x,id',exp)} zc ext cont
               | A.Tensor((a,p,id),b) ->
                 (* "subtype is sufficient with subsync types" *)
                 if not (eqtp env a' a) then
@@ -626,7 +627,7 @@ and check_exp trace env ctx exp zc ext (cont : A.cont) =
             match d with
               A.TpName(v) -> check_exp' trace env (update_tp env x ((A.expd_tp env v),q,idx) ctx) exp zc ext cont
             | A.Up(k, d') when !F.syntax = F.Implicit -> check_exp' trace env (update_tp env x (A.proto_subst_perm q k d',q,idx) ctx) exp zc ext cont
-            | A.ForallId(id,a) -> check_exp' trace env ctx {exp with A.st_structure = A.SendId(x,id',exp)} zc ext cont
+            | A.ForallId(id,a) when !F.syntax = F.Implicit -> check_exp' trace env ctx {exp with A.st_structure = A.SendId(x,id',exp)} zc ext cont
             | A.Lolli((a,p,id),b) ->
               (* "subtype is sufficient with subsync types" *)
               if not (eqtp env a' a) then
@@ -658,7 +659,7 @@ and check_exp trace env ctx exp zc ext (cont : A.cont) =
           else (* the type c of z must be lolli *)
             match c with
               A.TpName(v) -> check_exp' trace env ctx exp (z,A.expd_tp env v) ext cont
-            | A.ForallId(id, a) -> check_exp' trace env ctx {exp with A.st_structure = A.RecvId(x, fresh_name (), exp)} zc ext cont
+            | A.ForallId(id, a) when !F.syntax = F.Implicit -> check_exp' trace env ctx {exp with A.st_structure = A.RecvId(x, fresh_name (), exp)} zc ext cont
             | A.Lolli(a,b) ->
               check_exp' trace env (add_chan env (y,a) ctx) cont_p (z,b) ext cont
             | _ ->
@@ -669,7 +670,7 @@ and check_exp trace env ctx exp zc ext (cont : A.cont) =
           match d with
             A.TpName(v) -> check_exp' trace env (update_tp env x ((A.expd_tp env v),q,idx) ctx) exp zc ext cont
           | A.Up(k, d') when !F.syntax = F.Implicit -> check_exp' trace env (update_tp env x (A.proto_subst_perm q k d',q,idx) ctx) exp zc ext cont
-          | A.ExistsId(id, a) -> check_exp' trace env ctx {exp with A.st_structure = A.RecvId(x, fresh_name (), exp)} zc ext cont
+          | A.ExistsId(id, a) when !F.syntax = F.Implicit -> check_exp' trace env ctx {exp with A.st_structure = A.RecvId(x, fresh_name (), exp)} zc ext cont
           | A.Tensor((a,p,id),b) ->
             check_exp' trace env (add_chan env (y,(a,p,id)) (update_tp env x (b,q,idx) ctx)) cont_p zc ext cont
           | _ ->

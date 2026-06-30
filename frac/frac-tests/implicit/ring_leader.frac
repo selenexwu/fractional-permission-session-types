@@ -1,0 +1,149 @@
+(* Natural Numbers *)
+
+type nat = /\ k. &{
+  val: \\// mut_nat,
+  dup: ?a. <nat, *, a> * \/ nat
+}
+
+type mut_nat = +{zero: 1, succ: mut_nat}
+
+proc zero : . |- (n : nat) =
+  immut { p =>
+    case n (
+      val => mut {
+        n.zero;
+        close n
+      }
+    | dup =>
+        n1 <- zero;
+        send n n1;
+        continue
+    )
+  }
+
+proc succ[n0i] : (n0 : <nat, *, n0i>) |- (n : nat) =
+  immut n0 { p =>
+    case n (
+      val => mut {
+        n.succ;
+        n0.val;
+        n <-> n0
+      }
+    | dup =>
+        n0.dup;
+        n1 <- recv n0;
+        n2 <- succ n1;
+        send n n2;
+        continue n0
+    )
+  }
+
+proc drop_mut_nat[ni] : (n : <mut_nat, *, ni>) |- (d : 1) =
+  case n (
+    zero =>
+      wait n;
+      close d
+  | succ =>
+      d <- drop_mut_nat n
+  )
+
+proc drop_nat[ni] : (n : <nat, *, ni>) |- (d : 1) = n.val; d <- drop_mut_nat n
+
+type bool = +{true: 1, false: 1}
+
+proc lte[n1i,n2i] : (n1 : <mut_nat,*,n1i>), (n2 : <mut_nat,*,n2i>) |- (b : bool) =
+  case n1 (
+    zero =>
+      wait n1;
+      d <- drop_mut_nat n2; wait d;
+      b.true; close b
+  | succ =>
+      case n2 (
+        zero =>
+          wait n2;
+          d <- drop_mut_nat n1; wait d;
+          b.false; close b
+      | succ => b <- lte n1 n2
+      )
+  )
+
+proc max[n1i,n2i] : (n1 : <nat,*,n1i>), (n2 : <nat,*,n2i>) |- (res : nat) =
+  n1.dup;
+  n1d <- recv n1;
+  n1d.val;
+
+  n2.dup;
+  n2d <- recv n2;
+  n2d.val;
+
+  b <- lte n1d n2d;
+  case b (
+    true =>
+      wait b;
+      d <- drop_nat n1;
+      wait d;
+      res <-> n2
+  | false =>
+      wait b;
+      d <- drop_nat n2;
+      wait d;
+      res <-> n1
+  )
+
+type worker = &{
+  elect: !n1. <nat, *, n1> -o ?n2. <nat, *, n2> * worker
+}
+
+proc worker[idi, wi] : (id : <nat, *, idi>), (child : <worker, *, wi>) |- (w : worker) =
+  case w (
+    elect =>
+      n1 <- recv w;
+      id.dup;
+      id1 <- recv id;
+      next <- max n1 id1;
+
+      child.elect;
+      send child next;
+
+      leader <- recv child;
+      (* record leader *)
+
+      send w leader;
+
+      w <- worker id child
+  )
+
+proc last_worker[idi] : (id : <nat, *, idi>) |- (w : worker) =
+  case w (
+    elect =>
+      n1 <- recv w;
+      id.dup;
+      id1 <- recv id;
+      leader <- max n1 id1;
+      (* record leader *)
+
+      send w leader;
+
+      w <- last_worker id 
+  )
+
+proc one : . |- (n : nat) = n0 <- zero; n <- succ n0
+proc two : . |- (n : nat) = n0 <- one; n <- succ n0
+proc three : . |- (n : nat) = n0 <- two; n <- succ n0
+
+proc main : . |- (res : 1) =
+  n3 <- three;
+  w3 <- last_worker n3;
+  n2 <- two;
+  w2 <- worker n2 w3;
+  n1 <- one;
+  w1 <- worker n1 w2;
+
+  n0 <- zero;
+  w1.elect;
+  send w1 n0;
+
+  leader <- recv w1;
+  (* all workers know the leader now *)
+
+  abort

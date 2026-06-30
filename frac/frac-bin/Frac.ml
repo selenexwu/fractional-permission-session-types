@@ -1,5 +1,6 @@
 (* module NC = Lib.NomosConfig *)
 module C = Core
+module CU = Core_unix
 module TL = Lib_frac.TopLevel
 module PP = Lib_frac.Pprint
 module F = Lib_frac.FracFlags
@@ -21,12 +22,10 @@ let set_syntax s =
 let file (ext : string) =
   C.Command.Arg_type.create
     (fun filename ->
-      match C.Sys.is_file filename with
-          `No | `Unknown ->
-            begin
-              EM.error EM.File None ("'" ^ filename ^ "' is not a regular file!\n")
-            end
-        | `Yes -> check_extension filename ext)
+      if Sys.is_regular_file filename then
+        check_extension filename ext
+     else
+       EM.error EM.File None ("'" ^ filename ^ "' is not a regular file!\n"))
 
 let frac_file = file ".frac"
 
@@ -54,4 +53,4 @@ let frac_command =
           ())
 
 let () =
-  C.Command.run ~version:"1.0" ~build_info:"stable" frac_command;;
+  Command_unix.run ~version:"1.0" ~build_info:"stable" frac_command;;

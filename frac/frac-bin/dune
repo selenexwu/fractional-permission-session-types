@@ -1,5 +1,5 @@
 (executables
  (names frac)
- (libraries core lib_frac)
+ (libraries unix lib_frac core_unix.command_unix core)
  (preprocess
   (pps ppx_let)))
