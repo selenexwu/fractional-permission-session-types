@@ -126,8 +126,11 @@ let rec elab_decl env dcls = match dcls with
  * Returns NONE if there is a static error
  *)
 let elab_decls env dcls =
+  let start_time = Sys.time () in
   (* first pass: check validity of types and type check processes *)
   let env'' = elab_decl env dcls in
+  let end_time = Sys.time () in
+  let () = Printf.printf "%f\n" ((end_time -. start_time) *. 1000.) in
   env'';;
 
 (* exception ElabImpossible;; *)
