@@ -1,1 +1,0 @@
-val withOpenIn : string -> (in_channel -> 'a) -> 'a

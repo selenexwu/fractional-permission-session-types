@@ -1,8 +1,0 @@
-#test success
-
-type ping  = +{pin : &{pon : ping}}
-
-proc asset p1 : (x : ping) |- (sink : 1) =
-  case x
-  ( pin => x.pon; sink <- p1 <- x
-  )

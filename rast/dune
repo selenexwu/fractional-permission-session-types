@@ -1,8 +1,0 @@
-(executables
- (names rast regression)
- (libraries core clp)
- (preprocess (pps ppx_let)))
-
-(env
-    (dev
-      (flags (:standard -warn-error -A))))

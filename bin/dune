@@ -1,0 +1,5 @@
+(executables
+ (names fracst)
+ (libraries unix lib core_unix.command_unix core)
+ (preprocess
+  (pps ppx_let)))

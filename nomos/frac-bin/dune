@@ -1,5 +1,0 @@
-(executables
- (names frac)
- (libraries core lib_frac)
- (preprocess
-  (pps ppx_let)))
