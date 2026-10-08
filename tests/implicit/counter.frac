@@ -1,40 +1,4 @@
-type nat = /\ k. &{
-  val: \\// mut_nat,
-  dup: ?a. <nat, *, a> * \/ nat
-}
-
-type mut_nat = +{zero: 1, succ: mut_nat}
-
-proc zero : . |- (n : nat) =
-  immut { p =>
-    case n (
-      val => mut {
-        n.zero;
-        close n
-      }
-    | dup =>
-        n1 <- zero;
-        send n n1;
-        continue
-    )
-  }
-
-proc succ[n0i] : (n0 : <nat, *, n0i>) |- (n : nat) =
-  immut n0 { p =>
-    case n (
-      val => mut {
-        n.succ;
-        n0.val;
-        n <-> n0
-      }
-    | dup =>
-        n0.dup;
-        n1 <- recv n0;
-        n2 <- succ n1;
-        send n n2;
-        continue n0
-    )
-  }
+import nat.frac
 
 type counter = /\k. &{
   inc: \\// counter,

@@ -29,7 +29,6 @@ rule token = parse
   | "type"              { TYPE }
   | "proc"              { PROC }
   | "|-"                { TURNSTILE }
-  | "exec"              { EXEC }
   | ":"                 { COLON }
   
   (* session types *)

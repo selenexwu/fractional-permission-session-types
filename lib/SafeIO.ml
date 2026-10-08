@@ -13,4 +13,4 @@ let withOpenIn fileName scope =
    let _ = close_in instream in
    match result with
    | Value (x) -> x
-   | Exception (exn) -> raise exn;;
+   | Exception (exn) -> raise exn

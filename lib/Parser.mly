@@ -1,7 +1,5 @@
 (* import *)
 %token <string> IMPORT
-(* functional layer *)
-/* %token <int> INT */
 %token ONE
 %token <float> FLOAT
 %token <string> ID
@@ -12,10 +10,9 @@
 %token BAR
 %token PLUS TIMES
 %token EOF
-%token TYPE PROC TURNSTILE EXEC COLON
+%token TYPE PROC TURNSTILE COLON
 (* printing *)
 %token PRINT
-(* session type layer *)
 %token LOLLI AMPERSAND UP DOWN DOUBLEDOWN QUESTION BANG LANGLE RANGLE
 %token LBRACE RBRACE
 %token FORWARD LARROW SEMI RRARROW
@@ -83,7 +80,6 @@ proto:
 decl:
     | TYPE; x = ID; EQUALS; t = proto                                                                                                           { (Ast.TpDef (x,t), Ast.make_ext $startpos $endpos) }
     | PROC; f = ID; ids = id_list; ps = permname_list; COLON; args = args_opt; TURNSTILE; LPAREN; c = ID; COLON; t = proto; RPAREN; EQUALS; e = st  { (Ast.ExpDecDef(f, (ids, ps, args, (c,t)), e), Ast.make_ext $startpos $endpos) }
-    | EXEC; f = ID; l = list(ID)                                                                                                                { (Ast.Exec(f,l), Ast.make_ext $startpos $endpos) }
     ;
 
 branches:
@@ -93,18 +89,6 @@ branches2:
     | BAR; b = branches { b }
     | RPAREN { [] }
     ;
-
-(*
-print_id:
-    | x = ID                    { Ast.Word(x) }
-    | PINT                      { Ast.PInt }
-    | PBOOL                     { Ast.PBool }
-    | PSTR                      { Ast.PStr }
-    | PADDR                     { Ast.PAddr }
-    | PCHAN                     { Ast.PChan }
-    | NEWLINE                   { Ast.PNewline }
-    ;
-*)
 
 id_list:
     | { [] }

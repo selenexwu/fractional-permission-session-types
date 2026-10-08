@@ -1,9 +1,9 @@
 # TODO
 
-- fix up rational handling
 - Anything marked with TODO in code
-- probably a ton of uniqueness checks
-- handle products of variables
+- parse permissions as fractions
+- print nicer errors (Mark.ml should help?)
+- figure out using imports, should line counts change?
 
 # Done
 - add cases to type ast for new types
