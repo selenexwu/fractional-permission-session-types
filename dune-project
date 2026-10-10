@@ -10,6 +10,7 @@
  (name fracst)
  (synopsis "FracST Implementation")
  (authors "Selene Wu" "Ankush Das")
+ (maintainers "selenewu@nyu.edu")
  (depends
   (core (>= v0.17.2))
   (core_unix (>= v0.17.1))
