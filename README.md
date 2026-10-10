@@ -18,7 +18,7 @@ $ opam init
 ### Installing Dependencies
 Clone the repository.
 ```
-$ git clone https://github.com/selenexwsu/FracST.git
+$ git clone https://github.com/selenexwu/FracST.git
 $ cd FracST
 ```
 
