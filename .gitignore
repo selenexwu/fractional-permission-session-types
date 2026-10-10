@@ -33,3 +33,4 @@ setup.log
 *.conf
 
 .direnv/
+_opam/

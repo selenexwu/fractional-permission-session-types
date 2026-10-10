@@ -1,14 +1,14 @@
 (* import *)
 %token <string> IMPORT
 %token ONE
-%token <float> FLOAT
+%token <int> INT
 %token <string> ID
 %token <Ast.printable list> QUOTED_STRING
 %token LPAREN RPAREN
 %token EMPTYLIST LSQUARE RSQUARE COMMA
 %token EQUALS
 %token BAR
-%token PLUS TIMES
+%token PLUS TIMES DIV
 %token EOF
 %token TYPE PROC TURNSTILE COLON
 (* printing *)
@@ -43,11 +43,15 @@ args_opt:
     | l = separated_list(COMMA, argument)   { l }
     ;
 
+rational:
+    | n = INT { Q.of_int n }
+    | n = INT; DIV; d = INT { Q.of_ints n d }
+
 perm_term:
-    | coef = FLOAT; TIMES; var = ID; { (var, Q.of_float coef) }
-    | var = ID; TIMES; coef = FLOAT; { (var, Q.of_float coef) }
+    | coef = rational; TIMES; var = ID; { (var, coef) }
+    | var = ID; TIMES; coef = rational; { (var, coef) }
     | var = ID;                      { (var, Q.one) }
-    | const = FLOAT;                 { ("", Q.of_float const) }
+    | const = rational;                 { ("", const) }
     | ONE;                           { ("", Q.one) }
     | ONE; TIMES; var = ID;          { (var, Q.one) }
     | var = ID; TIMES; ONE;          { (var, Q.one) }
