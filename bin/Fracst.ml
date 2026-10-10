@@ -40,10 +40,16 @@ let frac_command =
           ~doc:"syntax: implicit, explicit"
       and file = anon ("filename" %: frac_file) in
       fun () ->
+        try
         let raw = TL.read file in
         F.verbosity := verbosity ;
         set_syntax syntax ;
-        let _txn = TL.check raw in
-        () )
+        let () = TL.check raw in
+        ()
+        with
+        | EM.LexError m -> print_endline m
+        | EM.ParseError m -> print_endline m
+        | EM.TypeError m -> print_endline m
+  )
 
 let () = Command_unix.run ~version:"1.0" ~build_info:"stable" frac_command

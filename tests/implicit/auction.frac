@@ -249,10 +249,10 @@ proc all_view[auci,qi]{aucp} :
   | some =>
       buyer <- recv q;
       auc1, auc2 <- split auc;
-      rest <- all_view{0.5*aucp} auc1 q;
+      rest <- all_view{1/2*aucp} auc1 q;
       send buyer {auci};
       buyer.view;
-      send buyer {{0.5*aucp}}; send buyer auc2;
+      send buyer {{1/2*aucp}}; send buyer auc2;
       auc2 <- recv buyer; wait buyer;
       auc1 <- recv rest; wait rest;
       auc <- merge auc1, auc2;

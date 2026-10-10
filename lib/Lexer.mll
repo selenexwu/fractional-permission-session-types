@@ -45,7 +45,6 @@ rule token = parse
   (* functional *)
   | newline             { next_line lexbuf; token lexbuf }
   | "(*"                { comment_depth := 1; comment lexbuf; token lexbuf }
-  | '1'                 { ONE }
   | ['0'-'9']+ as i     { INT (int_of_string i) }
   (*| ['0'-'9']+ ('.' ['0'-'9']+)? as f     { FLOAT (float_of_string f) }*)
   | '+'                 { PLUS  }

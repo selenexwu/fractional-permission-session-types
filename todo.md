@@ -1,10 +1,5 @@
 # TODO
 
-- Anything marked with TODO in code
-- parse permissions as fractions
-- print nicer errors (Mark.ml should help?)
-- figure out using imports, should line counts change?
-
 # Done
 - add cases to type ast for new types
 - add cases to parser for new types

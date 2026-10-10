@@ -1,6 +1,5 @@
 (* import *)
 %token <string> IMPORT
-%token ONE
 %token <int> INT
 %token <string> ID
 %token <Ast.printable list> QUOTED_STRING
@@ -43,7 +42,7 @@ args_opt:
     | l = separated_list(COMMA, argument)   { l }
     ;
 
-rational:
+%inline rational:
     | n = INT { Q.of_int n }
     | n = INT; DIV; d = INT { Q.of_ints n d }
 
@@ -52,9 +51,6 @@ perm_term:
     | var = ID; TIMES; coef = rational; { (var, coef) }
     | var = ID;                      { (var, Q.one) }
     | const = rational;                 { ("", const) }
-    | ONE;                           { ("", Q.one) }
-    | ONE; TIMES; var = ID;          { (var, Q.one) }
-    | var = ID; TIMES; ONE;          { (var, Q.one) }
 
 perm:
     | TIMES;                                         { Ast.Owned }
@@ -69,7 +65,7 @@ proto:
     | AMPERSAND; LBRACE; choices = separated_list(COMMA, label_proto); RBRACE   { Ast.With(choices) }
     | s = stype; TIMES; t = proto                                               { Ast.Tensor(s,t) }
     | s = stype; LOLLI; t = proto                                               { Ast.Lolli(s,t) }
-    | ONE                                                                       { Ast.One }
+    | INT                                                                       { Ast.One }
     | UP; k = ID; DOT; t = proto                                                { Ast.Up(k,t) }
     | DOWN; t = proto                                                           { Ast.Down(t) }
     | DOUBLEDOWN; t = proto                                                     { Ast.DoubleDown(t) }

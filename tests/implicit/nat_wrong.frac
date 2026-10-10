@@ -28,8 +28,8 @@ proc succ[n0i] : (n0 : <nat, *, n0i>) |- (n : nat) =
         n <-> n0
       }
     | dup =>
+        n1 <- recv n0; (* this line and the following one were swapped *)
         n0.dup;
-        n1 <- recv n0;
         n2 <- succ n1;
         send n n2;
         continue n0
@@ -93,28 +93,3 @@ proc lte[n1i,n2i] : (n1 : <mut_nat,*,n1i>), (n2 : <mut_nat,*,n2i>) |- (b : bool)
           b <- lte n1 n2
       )
   )
-
-type counter = /\k. &{
-  inc: \\// counter,
-  read: ?a. <nat, *, a> * \/ counter,
-  done: \\// ?a. <nat, *, a> * 1
-}
-
-proc counter[ni] : (n : <nat, *, ni>) |- (c : counter) =
-  immut n { p =>
-    case c (
-      inc => mut {
-        n1 <- succ n;
-        c <- counter n1
-      }
-    | read =>
-        n.dup;
-        n1 <- recv n;
-        send c n1;
-        continue n
-    | done => mut {
-        send c n;
-        close c
-      }
-    )
-  }
